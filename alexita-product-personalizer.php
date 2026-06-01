@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.3
+ * Version: 1.2.4
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.3';
+	const VERSION = '1.2.4';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';

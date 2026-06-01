@@ -121,15 +121,10 @@ form.cart.alexita-cart-form .alexita-cart-actions button[name="add-to-cart"] {
     margin: 16px 0 24px;
   }
 
-  form.cart.alexita-cart-form .alexita-personalizer {
-    max-height: none;
-    overflow: visible;
-  }
-
+  form.cart.alexita-cart-form .alexita-personalizer,
   form.cart.alexita-cart-form .alexita-players-wrapper {
-    max-height: min(42vh, 380px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .alexita-personalizer__subtitle {
