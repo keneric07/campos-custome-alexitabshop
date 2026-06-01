@@ -86,8 +86,10 @@
         return;
       }
 
-      var quantity = cartForm.querySelector('.quantity');
-      var button = cartForm.querySelector('.single_add_to_cart_button, button[name="add-to-cart"]');
+      var scope = cartForm.closest('.elementor-widget-woocommerce-product-add-to-cart') || cartForm;
+      var quantity = cartForm.querySelector('.quantity') || scope.querySelector('.quantity');
+      var button = cartForm.querySelector('.single_add_to_cart_button, button[name="add-to-cart"]') ||
+        scope.querySelector('.single_add_to_cart_button, button[name="add-to-cart"]');
 
       if (!quantity && !button) {
         return;
@@ -97,8 +99,9 @@
       if (!actions) {
         actions = document.createElement('div');
         actions.className = 'alexita-cart-actions';
-        cartForm.appendChild(actions);
       }
+
+      personalizer.insertAdjacentElement('afterend', actions);
 
       if (quantity && quantity.parentElement !== actions) {
         actions.appendChild(quantity);
@@ -107,8 +110,6 @@
       if (button && button.parentElement !== actions) {
         actions.appendChild(button);
       }
-
-      personalizer.insertAdjacentElement('afterend', actions);
 
       cartForm.classList.add('alexita-cart-form');
       cartForm.dataset.alexitaLayoutDone = '1';
@@ -687,7 +688,96 @@
       }
     }
 
+    function cleanEcomusStickyBar() {
+      var selectors = '.ecomus-sticky-atc, .ecomus-sticky-atc__content, .ecomus-sticky-add-to-cart';
+      document.querySelectorAll(selectors).forEach(function (sticky) {
+        sticky.querySelectorAll('#alexita-personalizer, .alexita-personalizer').forEach(function (node) {
+          node.remove();
+        });
+
+        sticky.querySelectorAll('.alexita-players-wrapper, .alexita-player').forEach(function (node) {
+          node.remove();
+        });
+
+        var actions = sticky.querySelector('.alexita-cart-actions');
+        if (actions) {
+          actions.style.display = 'flex';
+        }
+      });
+    }
+
+    function bindEcomusStickyAddToCart(mainForm) {
+      document.addEventListener('click', function (event) {
+        if (!document.getElementById('alexita-personalizer')) {
+          return;
+        }
+
+        var button = event.target.closest(
+          '.ecomus-sticky-atc .single_add_to_cart_button, .ecomus-sticky-atc__content .single_add_to_cart_button, .ecomus-sticky-add-to-cart .single_add_to_cart_button'
+        );
+
+        if (!button) {
+          return;
+        }
+
+        var stickyForm = button.closest('form.cart');
+        if (!stickyForm || stickyForm === mainForm) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        var stickyQty = stickyForm.querySelector('input.qty');
+        var mainQty = mainForm.querySelector('input.qty');
+
+        if (stickyQty && mainQty) {
+          mainQty.value = stickyQty.value;
+          syncPlayers();
+        }
+
+        prepareFormForSubmit(mainForm);
+
+        if (!validatePlayersBeforeSubmit()) {
+          return false;
+        }
+
+        var mainButton = mainForm.querySelector('.single_add_to_cart_button, button[name="add-to-cart"]');
+        ensureAddToCartField(mainForm, mainButton);
+
+        if (typeof mainForm.requestSubmit === 'function' && mainButton) {
+          mainForm.requestSubmit(mainButton);
+        } else {
+          mainForm.submit();
+        }
+
+        return false;
+      }, true);
+    }
+
+    function watchEcomusStickyBar() {
+      cleanEcomusStickyBar();
+
+      if (typeof MutationObserver === 'undefined') {
+        return;
+      }
+
+      var observer = new MutationObserver(function () {
+        cleanEcomusStickyBar();
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+
     bindQuantitySync();
     syncPlayers();
+    watchEcomusStickyBar();
+
+    if (form) {
+      bindEcomusStickyAddToCart(form);
+    }
   });
 })();
