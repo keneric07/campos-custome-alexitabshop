@@ -63,37 +63,73 @@ form.cart.alexita-cart-form .alexita-cart-actions button[name="add-to-cart"] {
   overflow: visible !important;
 }
 
+/* Bloque único: personalización + cantidad + botón en flujo normal */
+.alexita-checkout-stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0 20px;
+  clear: both;
+}
+
+.alexita-checkout-stack .alexita-personalizer {
+  margin: 0;
+  border-radius: var(--alexita-radius) var(--alexita-radius) 0 0;
+}
+
+.alexita-checkout-stack .alexita-cart-actions {
+  order: unset;
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  background: #fff !important;
+  border: 1px solid var(--alexita-border);
+  border-top: 1px dashed var(--alexita-border);
+  border-radius: 0 0 var(--alexita-radius) var(--alexita-radius);
+  box-shadow: none !important;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+.alexita-checkout-stack .alexita-cart-actions .quantity {
+  flex: 0 0 auto;
+}
+
+.alexita-checkout-stack .alexita-cart-actions .single_add_to_cart_button,
+.alexita-checkout-stack .alexita-cart-actions button[name="add-to-cart"] {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.alexita-atc-hidden-duplicate {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
 @media (min-width: 768px) {
-  form.cart.alexita-cart-form .alexita-personalizer {
-    max-height: min(52vh, 520px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  .alexita-checkout-stack {
+    margin: 16px 0 24px;
   }
 
-  form.cart.alexita-cart-form .alexita-personalizer__header {
-    flex-shrink: 0;
+  form.cart.alexita-cart-form .alexita-personalizer {
+    max-height: none;
+    overflow: visible;
   }
 
   form.cart.alexita-cart-form .alexita-players-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
+    max-height: min(42vh, 380px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-  }
-
-  form.cart.alexita-cart-form .alexita-cart-actions {
-    position: sticky;
-    bottom: 0;
-    margin-top: 10px;
-    padding: 14px 0 6px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, #ffffff 28%);
-    border-top: 1px solid var(--alexita-border);
-    box-shadow: 0 -8px 20px rgba(26, 26, 31, 0.06);
-  }
-
-  .alexita-personalizer {
-    margin: 12px 0;
   }
 
   .alexita-personalizer__subtitle {
@@ -104,6 +140,12 @@ form.cart.alexita-cart-form .alexita-cart-actions button[name="add-to-cart"] {
   .alexita-personalizer__chips li {
     padding: 3px 8px;
     font-size: 10px;
+  }
+
+  /* En desktop el ATC flotante del tema se oculta; queda el bloque bajo personalización */
+  body.single-product .ecomus-sticky-atc,
+  body.single-product .ecomus-sticky-atc__content {
+    display: none !important;
   }
 }
 

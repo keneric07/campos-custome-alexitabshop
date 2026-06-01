@@ -101,7 +101,15 @@
         actions.className = 'alexita-cart-actions';
       }
 
-      personalizer.insertAdjacentElement('afterend', actions);
+      var stack = cartForm.querySelector('.alexita-checkout-stack');
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.className = 'alexita-checkout-stack';
+        personalizer.parentNode.insertBefore(stack, personalizer);
+        stack.appendChild(personalizer);
+      }
+
+      stack.appendChild(actions);
 
       if (quantity && quantity.parentElement !== actions) {
         actions.appendChild(quantity);
@@ -111,8 +119,32 @@
         actions.appendChild(button);
       }
 
+      hideDuplicateAtcOutsideStack(stack, scope);
       cartForm.classList.add('alexita-cart-form');
       cartForm.dataset.alexitaLayoutDone = '1';
+    }
+
+    function hideDuplicateAtcOutsideStack(stack, scope) {
+      var root = scope || document;
+      var selectors = '.quantity, .single_add_to_cart_button, button[name="add-to-cart"]';
+
+      root.querySelectorAll(selectors).forEach(function (el) {
+        if (stack.contains(el)) {
+          return;
+        }
+        if (el.closest('.ecomus-sticky-atc, .ecomus-sticky-atc__content, .ecomus-sticky-add-to-cart')) {
+          return;
+        }
+
+        var holder = el.closest('.ecomus-atc-button, .product-atc-row, .woocommerce-variation-add-to-cart');
+        if (!holder) {
+          holder = el.parentElement;
+        }
+
+        if (holder && !stack.contains(holder)) {
+          holder.classList.add('alexita-atc-hidden-duplicate');
+        }
+      });
     }
 
     function reindexPlayerFields() {
