@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.1.0';
+	const VERSION = '1.1.1';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -44,6 +44,7 @@ final class Alexita_Product_Personalizer {
 
 		// Frontend.
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+		add_filter( 'woocommerce_add_to_cart_form_action', array( __CLASS__, 'add_to_cart_form_action' ) );
 		add_action( 'woocommerce_before_add_to_cart_button', array( __CLASS__, 'render_fields' ) );
 		add_filter( 'woocommerce_loop_add_to_cart_link', array( __CLASS__, 'replace_loop_add_to_cart' ), 10, 3 );
 
@@ -193,6 +194,16 @@ final class Alexita_Product_Personalizer {
 		return 'yes' === get_post_meta( $check_id, self::META_ENABLED, true );
 	}
 
+	public static function add_to_cart_form_action( $action ) {
+		global $product;
+
+		if ( $product && self::is_enabled_product( $product->get_id() ) && is_product() ) {
+			return get_permalink( $product->get_id() );
+		}
+
+		return $action;
+	}
+
 	public static function enqueue_assets() {
 		if ( ! function_exists( 'is_product' ) || ! is_product() ) {
 			return;
@@ -219,6 +230,12 @@ final class Alexita_Product_Personalizer {
 			true
 		);
 
+		wp_add_inline_script(
+			'alexita-product-personalizer',
+			'document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("alexita-personalizer");if(!b)return;var f=b.closest("form.cart")||document.querySelector("form.cart");if(f){f.setAttribute("enctype","multipart/form-data");f.setAttribute("method","post");}});',
+			'before'
+		);
+
 		wp_localize_script(
 			'alexita-product-personalizer',
 			'AlexitaPersonalizer',
@@ -242,6 +259,8 @@ final class Alexita_Product_Personalizer {
 					'previewAlt'      => __( 'Vista previa de la foto', 'alexita-product-personalizer' ),
 					'previewEmpty'    => __( 'Sin foto', 'alexita-product-personalizer' ),
 					'fileTooLarge'    => __( 'La foto supera el máximo permitido de 2.5 MB.', 'alexita-product-personalizer' ),
+					'missingPhoto'    => __( 'Falta la foto de la unidad %d.', 'alexita-product-personalizer' ),
+					'missingCountry'  => __( 'Selecciona un país para la unidad %d.', 'alexita-product-personalizer' ),
 				),
 			)
 		);
@@ -485,27 +504,43 @@ final class Alexita_Product_Personalizer {
 	}
 
 	private static function get_player_file( $index ) {
-		if ( empty( $_FILES['alexita_players'] ) || ! isset( $_FILES['alexita_players']['name'][ $index ]['photo'] ) ) {
+		$index = absint( $index );
+
+		if ( empty( $_FILES['alexita_players'] ) || ! is_array( $_FILES['alexita_players'] ) ) {
+			return null;
+		}
+
+		$uploads = $_FILES['alexita_players'];
+
+		if ( ! isset( $uploads['name'][ $index ]['photo'] ) ) {
 			return null;
 		}
 
 		$file = array();
 
 		foreach ( array( 'name', 'type', 'tmp_name', 'error', 'size' ) as $key ) {
-			if ( isset( $_FILES['alexita_players'][ $key ][ $index ]['photo'] ) ) {
-				$file[ $key ] = $_FILES['alexita_players'][ $key ][ $index ]['photo'];
+			if ( isset( $uploads[ $key ][ $index ]['photo'] ) ) {
+				$file[ $key ] = $uploads[ $key ][ $index ]['photo'];
 			}
 		}
 
-		return count( $file ) === 5 ? $file : null;
+		if ( ! isset( $file['tmp_name'] ) || '' === $file['tmp_name'] ) {
+			return null;
+		}
+
+		return $file;
 	}
 
 	private static function validate_file( $file, $player_number ) {
-		if ( empty( $file ) || empty( $file['name'] ) ) {
+		if ( empty( $file ) ) {
 			return sprintf( __( 'Falta la foto del Jugador %d.', 'alexita-product-personalizer' ), $player_number );
 		}
 
-		if ( isset( $file['error'] ) && UPLOAD_ERR_OK !== absint( $file['error'] ) ) {
+		if ( isset( $file['error'] ) && UPLOAD_ERR_NO_FILE === (int) $file['error'] ) {
+			return sprintf( __( 'Falta la foto del Jugador %d.', 'alexita-product-personalizer' ), $player_number );
+		}
+
+		if ( isset( $file['error'] ) && UPLOAD_ERR_OK !== (int) $file['error'] ) {
 			return sprintf( __( 'La foto del Jugador %d no se pudo subir correctamente.', 'alexita-product-personalizer' ), $player_number );
 		}
 

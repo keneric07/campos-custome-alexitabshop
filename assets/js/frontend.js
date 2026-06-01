@@ -24,7 +24,11 @@
 
     if (form) {
       form.setAttribute('enctype', 'multipart/form-data');
+      form.setAttribute('method', 'post');
       layoutCartForm(form, box);
+      qtyInput = form.querySelector('input.qty');
+      bindCartFormSubmit(form);
+      bindWooCommerceAddToCart(form);
     }
 
     function text(key, fallback) {
@@ -111,6 +115,82 @@
       cartForm.dataset.alexitaLayoutDone = '1';
     }
 
+    function validatePlayersBeforeSubmit() {
+      if (!wrapper) {
+        return true;
+      }
+
+      var players = wrapper.querySelectorAll('.alexita-player');
+      var i;
+
+      for (i = 0; i < players.length; i++) {
+        var playerNumber = i + 1;
+        var countryValue = players[i].querySelector('.alexita-country__value');
+        var fileInput = players[i].querySelector('.alexita-file__input');
+
+        if (countryValue && !countryValue.value) {
+          alert(text('missingCountry', 'Selecciona un país para la unidad %d.').replace('%d', String(playerNumber)));
+          if (countryValue.closest('.alexita-country')) {
+            var toggle = countryValue.closest('.alexita-country').querySelector('.alexita-country__toggle');
+            if (toggle) toggle.focus();
+          }
+          return false;
+        }
+
+        if (!fileInput || !fileInput.files || !fileInput.files.length) {
+          alert(text('missingPhoto', 'Falta la foto de la unidad %d.').replace('%d', String(playerNumber)));
+          if (fileInput) fileInput.focus();
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function bindCartFormSubmit(cartForm) {
+      cartForm.addEventListener('submit', function (event) {
+        cartForm.setAttribute('enctype', 'multipart/form-data');
+        if (!validatePlayersBeforeSubmit()) {
+          event.preventDefault();
+        }
+      });
+    }
+
+    function bindWooCommerceAddToCart(cartForm) {
+      if (!window.jQuery) {
+        return;
+      }
+
+      window.jQuery(document.body).on('click.alexitaPersonalizer', '.single_add_to_cart_button', function (event) {
+        if (!document.getElementById('alexita-personalizer')) {
+          return;
+        }
+
+        var $button = window.jQuery(this);
+        var $form = $button.closest('form.cart');
+
+        if (!$form.length || !$form.find('#alexita-personalizer').length) {
+          return;
+        }
+
+        $form.attr('enctype', 'multipart/form-data');
+
+        if (!validatePlayersBeforeSubmit()) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return false;
+        }
+
+        // Temas que envían por AJAX no incluyen archivos: forzar POST clásico del formulario.
+        if ($button.hasClass('ajax_add_to_cart')) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          cartForm.submit();
+          return false;
+        }
+      });
+    }
+
     function getQuantity() {
       var qty = 1;
       if (qtyInput && qtyInput.value) {
@@ -140,15 +220,19 @@
           '</div>' +
           countryFieldHtml(index) +
           '<div class="alexita-field alexita-field--file">' +
-            '<label for="alexita-player-photo-' + index + '">' + text('photo', 'Foto del rostro') + '</label>' +
+            '<span class="alexita-field__label">' + text('photo', 'Foto del rostro') + '</span>' +
             '<div class="alexita-file">' +
               '<div class="alexita-file__preview" aria-live="polite">' +
-                '<img class="alexita-file__img" alt="' + text('previewAlt', 'Vista previa de la foto') + '" hidden>' +
+                '<img class="alexita-file__img" alt="' + text('previewAlt', 'Vista previa de la foto') + '">' +
                 '<span class="alexita-file__placeholder">' + text('previewEmpty', 'Sin foto') + '</span>' +
               '</div>' +
               '<div class="alexita-file__controls">' +
-                '<label class="alexita-file__trigger" for="alexita-player-photo-' + index + '">' + text('choosePhoto', 'Elegir foto') + '</label>' +
-                '<input class="alexita-file__input" id="alexita-player-photo-' + index + '" type="file" name="alexita_players[' + index + '][photo]" accept="image/jpeg,image/png,image/webp" required>' +
+                '<div class="alexita-file__picker">' +
+                  '<label class="alexita-file__trigger">' +
+                    '<span class="alexita-file__trigger-text">' + text('choosePhoto', 'Elegir foto') + '</span>' +
+                    '<input class="alexita-file__input" id="alexita-player-photo-' + index + '" type="file" name="alexita_players[' + index + '][photo]" accept="image/jpeg,image/png,image/webp" required>' +
+                  '</label>' +
+                '</div>' +
                 '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
               '</div>' +
             '</div>' +
@@ -220,7 +304,6 @@
         }
         if (imgEl) {
           imgEl.removeAttribute('src');
-          imgEl.hidden = true;
         }
         if (placeholderEl) {
           placeholderEl.hidden = false;
@@ -242,7 +325,6 @@
 
       if (imgEl) {
         imgEl.src = objectUrl;
-        imgEl.hidden = false;
       }
 
       if (placeholderEl) {
@@ -359,16 +441,22 @@
       }
     });
 
-    if (qtyInput) {
-      qtyInput.addEventListener('change', syncPlayers);
-      qtyInput.addEventListener('input', syncPlayers);
-      qtyInput.addEventListener('keyup', syncPlayers);
+    function bindQuantitySync() {
+      if (!form) return;
+
+      form.addEventListener('click', function (event) {
+        if (event.target.closest('.quantity, .qty, input.qty, .plus, .minus')) {
+          window.setTimeout(syncPlayers, 80);
+        }
+      });
+
+      if (qtyInput) {
+        qtyInput.addEventListener('change', syncPlayers);
+        qtyInput.addEventListener('input', syncPlayers);
+      }
     }
 
-    document.body.addEventListener('click', function () {
-      window.setTimeout(syncPlayers, 120);
-    });
-
+    bindQuantitySync();
     syncPlayers();
   });
 })();
