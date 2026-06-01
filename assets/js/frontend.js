@@ -193,6 +193,51 @@
       reindexPlayerFields();
     }
 
+    function ensureAddToCartField(cartForm, button) {
+      var productId = '';
+
+      if (button) {
+        productId = button.value || button.getAttribute('value') || '';
+        if (!productId && button.getAttribute('name') === 'add-to-cart') {
+          productId = button.value || '';
+        }
+      }
+
+      if (!productId && window.jQuery) {
+        var $btn = window.jQuery(cartForm).find('.single_add_to_cart_button, button[name="add-to-cart"]').first();
+        if ($btn.length) {
+          productId = $btn.val() || $btn.attr('value') || $btn.data('product_id') || '';
+        }
+      }
+
+      if (!productId) {
+        return;
+      }
+
+      var helper = cartForm.querySelector('input.alexita-add-to-cart-helper');
+
+      if (!helper) {
+        helper = document.createElement('input');
+        helper.type = 'hidden';
+        helper.name = 'add-to-cart';
+        helper.className = 'alexita-add-to-cart-helper';
+        cartForm.appendChild(helper);
+      }
+
+      helper.value = productId;
+    }
+
+    function submitCartFormWithButton(cartForm, button) {
+      ensureAddToCartField(cartForm, button);
+
+      if (typeof cartForm.requestSubmit === 'function' && button) {
+        cartForm.requestSubmit(button);
+        return;
+      }
+
+      cartForm.submit();
+    }
+
     function bindCartFormSubmit(cartForm) {
       cartForm.addEventListener('submit', function (event) {
         prepareFormForMultipartSubmit(cartForm);
@@ -227,11 +272,18 @@
           return false;
         }
 
-        // AJAX y algunos temas móviles no envían archivos: POST multipart nativo del formulario.
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        cartForm.submit();
-        return false;
+        var buttonEl = $button[0];
+
+        // Solo interceptar AJAX (no envía archivos). El clic normal debe seguir para incluir add-to-cart.
+        if ($button.hasClass('ajax_add_to_cart')) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          submitCartFormWithButton(cartForm, buttonEl);
+          return false;
+        }
+
+        // Dejar que el submit nativo del botón envíe add-to-cart + archivos.
+        ensureAddToCartField(cartForm, buttonEl);
       });
     }
 
