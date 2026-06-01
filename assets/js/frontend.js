@@ -17,7 +17,10 @@
     var wrapper = document.getElementById('alexita-players-wrapper');
     var qtyInput = form ? form.querySelector('input.qty') : null;
     var maxFileSize = parseInt(box.getAttribute('data-max-file-size'), 10) || 2621440;
-    var labels = (window.AlexitaPersonalizer && window.AlexitaPersonalizer.labels) ? window.AlexitaPersonalizer.labels : {};
+    var config = window.AlexitaPersonalizer || {};
+    var labels = config.labels || {};
+    var countries = config.countries || [];
+    var countryOptionsHtml = buildCountryOptionsHtml(countries);
 
     if (form) {
       form.setAttribute('enctype', 'multipart/form-data');
@@ -26,6 +29,53 @@
 
     function text(key, fallback) {
       return labels[key] || fallback;
+    }
+
+    function escapeAttr(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
+
+    function buildCountryOptionsHtml(list) {
+      if (!list.length) {
+        return '';
+      }
+
+      return list.map(function (country) {
+        return (
+          '<li role="presentation">' +
+            '<button type="button" class="alexita-country__option" role="option" ' +
+              'data-code="' + escapeAttr(country.code) + '" ' +
+              'data-flag="' + escapeAttr(country.flag) + '" ' +
+              'data-name="' + escapeAttr(country.name) + '">' +
+              '<span class="alexita-country__flag" aria-hidden="true">' + country.flag + '</span>' +
+              '<span class="alexita-country__name">' + country.name + '</span>' +
+            '</button>' +
+          '</li>'
+        );
+      }).join('');
+    }
+
+    function countryFieldHtml(index) {
+      return (
+        '<div class="alexita-field alexita-field--country">' +
+          '<label>' + text('country', 'País') + '</label>' +
+          '<div class="alexita-country">' +
+            '<input type="hidden" class="alexita-country__value" name="alexita_players[' + index + '][country]" value="" required>' +
+            '<button type="button" class="alexita-country__toggle" aria-haspopup="listbox" aria-expanded="false">' +
+              '<span class="alexita-country__selected-flag" aria-hidden="true">🌐</span>' +
+              '<span class="alexita-country__selected-name">' + text('countryChoose', 'Selecciona tu país') + '</span>' +
+              '<span class="alexita-country__chevron" aria-hidden="true"></span>' +
+            '</button>' +
+            '<div class="alexita-country__panel" hidden>' +
+              '<input type="search" class="alexita-country__search" placeholder="' + text('countrySearch', 'Buscar país…') + '" autocomplete="off">' +
+              '<ul class="alexita-country__list" role="listbox">' + countryOptionsHtml + '</ul>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
     }
 
     function layoutCartForm(cartForm, personalizer) {
@@ -78,14 +128,17 @@
             '<span class="alexita-player__badge" aria-hidden="true">' + number + '</span>' +
             '<h4 class="alexita-player__title">' + text('player', 'Unidad') + ' ' + number + '</h4>' +
           '</div>' +
-          '<div class="alexita-field">' +
-            '<label for="alexita-player-name-' + index + '">' + text('name', 'Nombre') + '</label>' +
-            '<input id="alexita-player-name-' + index + '" type="text" name="alexita_players[' + index + '][name]" placeholder="' + text('nameExample', 'Ej.: Annie') + '" maxlength="30" required autocomplete="name">' +
+          '<div class="alexita-player__row">' +
+            '<div class="alexita-field alexita-field--name">' +
+              '<label for="alexita-player-name-' + index + '">' + text('name', 'Nombre') + '</label>' +
+              '<input id="alexita-player-name-' + index + '" type="text" name="alexita_players[' + index + '][name]" placeholder="' + text('nameExample', 'Ej.: Annie') + '" maxlength="30" required autocomplete="name">' +
+            '</div>' +
+            '<div class="alexita-field alexita-field--number">' +
+              '<label for="alexita-player-number-' + index + '">' + text('number', 'Número') + '</label>' +
+              '<input id="alexita-player-number-' + index + '" type="text" name="alexita_players[' + index + '][number]" placeholder="' + text('numExample', 'Ej.: 14') + '" maxlength="2" inputmode="numeric" pattern="[0-9]{1,2}" required>' +
+            '</div>' +
           '</div>' +
-          '<div class="alexita-field">' +
-            '<label for="alexita-player-number-' + index + '">' + text('number', 'Número') + '</label>' +
-            '<input id="alexita-player-number-' + index + '" type="text" name="alexita_players[' + index + '][number]" placeholder="' + text('numExample', 'Ej.: 14') + '" maxlength="2" inputmode="numeric" pattern="[0-9]{1,2}" required>' +
-          '</div>' +
+          countryFieldHtml(index) +
           '<div class="alexita-field alexita-field--file">' +
             '<label for="alexita-player-photo-' + index + '">' + text('photo', 'Foto del rostro') + '</label>' +
             '<div class="alexita-file">' +
@@ -102,6 +155,42 @@
             '<small>' + text('photoHint', 'JPG, PNG o WebP · máx. 2.5 MB') + '</small>' +
           '</div>' +
         '</div>';
+    }
+
+    function closeCountryPanels(except) {
+      if (!wrapper) return;
+      wrapper.querySelectorAll('.alexita-country').forEach(function (countryEl) {
+        if (except && countryEl === except) return;
+        countryEl.classList.remove('is-open');
+        var panel = countryEl.querySelector('.alexita-country__panel');
+        var toggle = countryEl.querySelector('.alexita-country__toggle');
+        if (panel) panel.hidden = true;
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function setCountrySelection(countryEl, code, flag, name) {
+      var valueInput = countryEl.querySelector('.alexita-country__value');
+      var flagEl = countryEl.querySelector('.alexita-country__selected-flag');
+      var nameEl = countryEl.querySelector('.alexita-country__selected-name');
+
+      if (valueInput) valueInput.value = code;
+      if (flagEl) flagEl.textContent = flag;
+      if (nameEl) nameEl.textContent = name;
+      countryEl.classList.add('is-selected');
+    }
+
+    function filterCountryList(countryEl, query) {
+      var list = countryEl.querySelector('.alexita-country__list');
+      if (!list) return;
+
+      var normalized = query.trim().toLowerCase();
+      list.querySelectorAll('.alexita-country__option').forEach(function (option) {
+        var name = (option.getAttribute('data-name') || '').toLowerCase();
+        var item = option.closest('li');
+        if (!item) return;
+        item.hidden = normalized !== '' && name.indexOf(normalized) === -1;
+      });
     }
 
     function revokePreviewUrl(input) {
@@ -204,14 +293,76 @@
       updateFilePreview(input);
     }
 
+    if (wrapper) {
+      wrapper.addEventListener('change', validateFileSize);
+
+      wrapper.addEventListener('click', function (event) {
+        var toggle = event.target.closest('.alexita-country__toggle');
+        if (toggle) {
+          event.preventDefault();
+          var countryEl = toggle.closest('.alexita-country');
+          if (!countryEl) return;
+
+          var panel = countryEl.querySelector('.alexita-country__panel');
+          var isOpen = countryEl.classList.contains('is-open');
+
+          closeCountryPanels();
+          if (!isOpen && panel) {
+            countryEl.classList.add('is-open');
+            panel.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+            var search = panel.querySelector('.alexita-country__search');
+            if (search) {
+              search.value = '';
+              filterCountryList(countryEl, '');
+              search.focus();
+            }
+          }
+          return;
+        }
+
+        var option = event.target.closest('.alexita-country__option');
+        if (option) {
+          event.preventDefault();
+          var countryWrap = option.closest('.alexita-country');
+          if (!countryWrap) return;
+
+          setCountrySelection(
+            countryWrap,
+            option.getAttribute('data-code') || '',
+            option.getAttribute('data-flag') || '',
+            option.getAttribute('data-name') || ''
+          );
+          closeCountryPanels();
+        }
+      });
+
+      wrapper.addEventListener('input', function (event) {
+        if (event.target.classList.contains('alexita-country__search')) {
+          var countryEl = event.target.closest('.alexita-country');
+          if (countryEl) {
+            filterCountryList(countryEl, event.target.value);
+          }
+        }
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('.alexita-country')) {
+        closeCountryPanels();
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closeCountryPanels();
+      }
+    });
+
     if (qtyInput) {
       qtyInput.addEventListener('change', syncPlayers);
       qtyInput.addEventListener('input', syncPlayers);
       qtyInput.addEventListener('keyup', syncPlayers);
-    }
-
-    if (wrapper) {
-      wrapper.addEventListener('change', validateFileSize);
     }
 
     document.body.addEventListener('click', function () {

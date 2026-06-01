@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.0.3
+ * Version: 1.1.0
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.0.3';
+	const VERSION = '1.1.0';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -75,6 +75,87 @@ final class Alexita_Product_Personalizer {
 
 	public static function plugin_url( $path = '' ) {
 		return plugin_dir_url( __FILE__ ) . ltrim( $path, '/' );
+	}
+
+	/**
+	 * @return array<int, array{code: string, name: string, iso?: string, flag?: string, host?: bool}>
+	 */
+	private static function get_countries_list() {
+		static $countries = null;
+
+		if ( null === $countries ) {
+			$countries = include __DIR__ . '/includes/countries.php';
+		}
+
+		return is_array( $countries ) ? $countries : array();
+	}
+
+	private static function iso_to_flag( $iso ) {
+		$iso = strtoupper( preg_replace( '/[^A-Z]/', '', (string) $iso ) );
+
+		if ( strlen( $iso ) !== 2 ) {
+			return '';
+		}
+
+		$flag = '';
+
+		for ( $i = 0; $i < 2; $i++ ) {
+			$flag .= mb_chr( ord( $iso[ $i ] ) + 127397, 'UTF-8' );
+		}
+
+		return $flag;
+	}
+
+	/**
+	 * @return array<int, array{code: string, name: string, flag: string, host: bool}>
+	 */
+	private static function get_countries_for_js() {
+		$list = array();
+
+		foreach ( self::get_countries_list() as $country ) {
+			$code = isset( $country['code'] ) ? (string) $country['code'] : '';
+			$name = isset( $country['name'] ) ? (string) $country['name'] : '';
+
+			if ( '' === $code || '' === $name ) {
+				continue;
+			}
+
+			$flag = '';
+
+			if ( ! empty( $country['flag'] ) ) {
+				$flag = (string) $country['flag'];
+			} elseif ( ! empty( $country['iso'] ) ) {
+				$flag = self::iso_to_flag( $country['iso'] );
+			}
+
+			$list[] = array(
+				'code' => $code,
+				'name' => $name,
+				'flag' => $flag,
+				'host' => ! empty( $country['host'] ),
+			);
+		}
+
+		return $list;
+	}
+
+	/**
+	 * @return array{code: string, name: string, flag: string}|null
+	 */
+	private static function get_country_by_code( $code ) {
+		$code = strtoupper( sanitize_text_field( (string) $code ) );
+
+		if ( '' === $code ) {
+			return null;
+		}
+
+		foreach ( self::get_countries_for_js() as $country ) {
+			if ( $country['code'] === $code ) {
+				return $country;
+			}
+		}
+
+		return null;
 	}
 
 	public static function add_product_option() {
@@ -144,10 +225,14 @@ final class Alexita_Product_Personalizer {
 			array(
 				'maxFileSize'     => self::MAX_FILE_SIZE,
 				'maxFileSizeText' => '2.5 MB',
+				'countries'       => self::get_countries_for_js(),
 				'labels'          => array(
 					'player'          => __( 'Unidad', 'alexita-product-personalizer' ),
 					'name'            => __( 'Nombre', 'alexita-product-personalizer' ),
 					'number'          => __( 'Número', 'alexita-product-personalizer' ),
+					'country'         => __( 'País', 'alexita-product-personalizer' ),
+					'countryChoose'   => __( 'Selecciona tu país', 'alexita-product-personalizer' ),
+					'countrySearch'   => __( 'Buscar país…', 'alexita-product-personalizer' ),
 					'photo'           => __( 'Foto del rostro', 'alexita-product-personalizer' ),
 					'nameExample'     => __( 'Ej.: Annie', 'alexita-product-personalizer' ),
 					'numExample'      => __( 'Ej.: 14', 'alexita-product-personalizer' ),
@@ -176,11 +261,12 @@ final class Alexita_Product_Personalizer {
 				<p class="alexita-personalizer__eyebrow"><?php echo esc_html__( 'Tu diseño único', 'alexita-product-personalizer' ); ?></p>
 				<h3 class="alexita-personalizer__title"><?php echo esc_html__( 'Personaliza el tuyo', 'alexita-product-personalizer' ); ?></h3>
 				<p class="alexita-personalizer__subtitle">
-					<?php echo esc_html__( 'Indica nombre, número y foto por cada pieza. Si cambias la cantidad, se actualizan los formularios.', 'alexita-product-personalizer' ); ?>
+					<?php echo esc_html__( 'Nombre, número, país y foto por cada pieza. Si cambias la cantidad, se actualizan los formularios.', 'alexita-product-personalizer' ); ?>
 				</p>
 				<ul class="alexita-personalizer__chips" aria-hidden="true">
 					<li><?php echo esc_html__( 'Nombre', 'alexita-product-personalizer' ); ?></li>
 					<li><?php echo esc_html__( 'Número', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'País', 'alexita-product-personalizer' ); ?></li>
 					<li><?php echo esc_html__( 'Foto', 'alexita-product-personalizer' ); ?></li>
 				</ul>
 			</header>
@@ -229,6 +315,8 @@ final class Alexita_Product_Personalizer {
 
 			$name = isset( $players_post[ $i ]['name'] ) ? sanitize_text_field( $players_post[ $i ]['name'] ) : '';
 			$number = isset( $players_post[ $i ]['number'] ) ? sanitize_text_field( $players_post[ $i ]['number'] ) : '';
+			$country_code = isset( $players_post[ $i ]['country'] ) ? sanitize_text_field( $players_post[ $i ]['country'] ) : '';
+			$country = self::get_country_by_code( $country_code );
 
 			if ( '' === $name ) {
 				wc_add_notice( sprintf( __( 'Falta el nombre del Jugador %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
@@ -242,6 +330,11 @@ final class Alexita_Product_Personalizer {
 
 			if ( '' === $number || ! preg_match( '/^[0-9]{1,2}$/', $number ) ) {
 				wc_add_notice( sprintf( __( 'El número del Jugador %d debe tener 1 o 2 dígitos.', 'alexita-product-personalizer' ), $player_number ), 'error' );
+				return false;
+			}
+
+			if ( ! $country ) {
+				wc_add_notice( sprintf( __( 'Selecciona un país válido para la unidad %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
 				return false;
 			}
 
@@ -268,11 +361,14 @@ final class Alexita_Product_Personalizer {
 			}
 
 			$prepared[] = array(
-				'name'       => $name,
-				'number'     => $number,
-				'photo_url'  => esc_url_raw( $upload['url'] ),
-				'photo_file' => isset( $upload['file'] ) ? sanitize_text_field( $upload['file'] ) : '',
-				'photo_type' => isset( $upload['type'] ) ? sanitize_text_field( $upload['type'] ) : '',
+				'name'         => $name,
+				'number'       => $number,
+				'country_code' => $country['code'],
+				'country_name' => $country['name'],
+				'country_flag' => $country['flag'],
+				'photo_url'    => esc_url_raw( $upload['url'] ),
+				'photo_file'   => isset( $upload['file'] ) ? sanitize_text_field( $upload['file'] ) : '',
+				'photo_type'   => isset( $upload['type'] ) ? sanitize_text_field( $upload['type'] ) : '',
 			);
 		}
 
@@ -307,18 +403,24 @@ final class Alexita_Product_Personalizer {
 			$player_number = $index + 1;
 			$name = isset( $player['name'] ) ? $player['name'] : '';
 			$number = isset( $player['number'] ) ? $player['number'] : '';
+			$country_flag = isset( $player['country_flag'] ) ? $player['country_flag'] : '';
+			$country_name = isset( $player['country_name'] ) ? $player['country_name'] : '';
 			$photo_url = isset( $player['photo_url'] ) ? $player['photo_url'] : '';
 
 			$photo_link = $photo_url
 				? sprintf( '<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>', esc_url( $photo_url ), esc_html__( 'Ver foto', 'alexita-product-personalizer' ) )
 				: esc_html__( 'Sin foto', 'alexita-product-personalizer' );
 
+			$country_display = trim( $country_flag . ' ' . $country_name );
+
 			$display = sprintf(
-				'%s: %s | %s: %s | %s',
+				'%s: %s | %s: %s | %s: %s | %s',
 				esc_html__( 'Nombre', 'alexita-product-personalizer' ),
 				esc_html( $name ),
 				esc_html__( 'Número', 'alexita-product-personalizer' ),
 				esc_html( $number ),
+				esc_html__( 'País', 'alexita-product-personalizer' ),
+				esc_html( $country_display ),
 				$photo_link
 			);
 
@@ -342,6 +444,12 @@ final class Alexita_Product_Personalizer {
 
 			$item->add_meta_data( sprintf( 'Jugador %d - Nombre', $player_number ), isset( $player['name'] ) ? $player['name'] : '', true );
 			$item->add_meta_data( sprintf( 'Jugador %d - Número', $player_number ), isset( $player['number'] ) ? $player['number'] : '', true );
+
+			$country_meta = '';
+			if ( ! empty( $player['country_flag'] ) || ! empty( $player['country_name'] ) ) {
+				$country_meta = trim( ( isset( $player['country_flag'] ) ? $player['country_flag'] : '' ) . ' ' . ( isset( $player['country_name'] ) ? $player['country_name'] : '' ) );
+			}
+			$item->add_meta_data( sprintf( 'Jugador %d - País', $player_number ), $country_meta, true );
 			$item->add_meta_data( sprintf( 'Jugador %d - Foto', $player_number ), isset( $player['photo_url'] ) ? $player['photo_url'] : '', true );
 		}
 	}
