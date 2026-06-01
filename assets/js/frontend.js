@@ -21,10 +21,44 @@
 
     if (form) {
       form.setAttribute('enctype', 'multipart/form-data');
+      layoutCartForm(form, box);
     }
 
     function text(key, fallback) {
       return labels[key] || fallback;
+    }
+
+    function layoutCartForm(cartForm, personalizer) {
+      if (!cartForm || cartForm.dataset.alexitaLayoutDone === '1') {
+        return;
+      }
+
+      var quantity = cartForm.querySelector('.quantity');
+      var button = cartForm.querySelector('.single_add_to_cart_button, button[name="add-to-cart"]');
+
+      if (!quantity && !button) {
+        return;
+      }
+
+      var actions = cartForm.querySelector('.alexita-cart-actions');
+      if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'alexita-cart-actions';
+        cartForm.appendChild(actions);
+      }
+
+      if (quantity && quantity.parentElement !== actions) {
+        actions.appendChild(quantity);
+      }
+
+      if (button && button.parentElement !== actions) {
+        actions.appendChild(button);
+      }
+
+      personalizer.insertAdjacentElement('afterend', actions);
+
+      cartForm.classList.add('alexita-cart-form');
+      cartForm.dataset.alexitaLayoutDone = '1';
     }
 
     function getQuantity() {
@@ -55,30 +89,79 @@
           '<div class="alexita-field alexita-field--file">' +
             '<label for="alexita-player-photo-' + index + '">' + text('photo', 'Foto del rostro') + '</label>' +
             '<div class="alexita-file">' +
-              '<label class="alexita-file__trigger" for="alexita-player-photo-' + index + '">' + text('choosePhoto', 'Elegir foto') + '</label>' +
-              '<input class="alexita-file__input" id="alexita-player-photo-' + index + '" type="file" name="alexita_players[' + index + '][photo]" accept="image/jpeg,image/png,image/webp" required>' +
-              '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
+              '<div class="alexita-file__preview" aria-live="polite">' +
+                '<img class="alexita-file__img" alt="' + text('previewAlt', 'Vista previa de la foto') + '" hidden>' +
+                '<span class="alexita-file__placeholder">' + text('previewEmpty', 'Sin foto') + '</span>' +
+              '</div>' +
+              '<div class="alexita-file__controls">' +
+                '<label class="alexita-file__trigger" for="alexita-player-photo-' + index + '">' + text('choosePhoto', 'Elegir foto') + '</label>' +
+                '<input class="alexita-file__input" id="alexita-player-photo-' + index + '" type="file" name="alexita_players[' + index + '][photo]" accept="image/jpeg,image/png,image/webp" required>' +
+                '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
+              '</div>' +
             '</div>' +
             '<small>' + text('photoHint', 'JPG, PNG o WebP · máx. 2.5 MB') + '</small>' +
           '</div>' +
         '</div>';
     }
 
-    function updateFileNameDisplay(input) {
+    function revokePreviewUrl(input) {
+      if (!input || !input.dataset.previewUrl) return;
+      URL.revokeObjectURL(input.dataset.previewUrl);
+      delete input.dataset.previewUrl;
+    }
+
+    function updateFilePreview(input) {
       if (!input) return;
+
       var fileWrap = input.closest('.alexita-file');
       if (!fileWrap) return;
+
       var nameEl = fileWrap.querySelector('.alexita-file__name');
-      if (!nameEl) return;
+      var imgEl = fileWrap.querySelector('.alexita-file__img');
+      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
+      var previewBox = fileWrap.querySelector('.alexita-file__preview');
+      var emptyText = nameEl ? (nameEl.getAttribute('data-empty') || text('noFileSelected', 'Ninguna foto seleccionada')) : '';
 
-      var emptyText = nameEl.getAttribute('data-empty') || text('noFileSelected', 'Ninguna foto seleccionada');
+      revokePreviewUrl(input);
 
-      if (input.files && input.files[0]) {
-        nameEl.textContent = input.files[0].name;
+      if (!input.files || !input.files[0]) {
+        if (nameEl) {
+          nameEl.textContent = emptyText;
+          nameEl.classList.remove('is-selected');
+        }
+        if (imgEl) {
+          imgEl.removeAttribute('src');
+          imgEl.hidden = true;
+        }
+        if (placeholderEl) {
+          placeholderEl.hidden = false;
+        }
+        if (previewBox) {
+          previewBox.classList.remove('has-image');
+        }
+        return;
+      }
+
+      var file = input.files[0];
+      var objectUrl = URL.createObjectURL(file);
+      input.dataset.previewUrl = objectUrl;
+
+      if (nameEl) {
+        nameEl.textContent = file.name;
         nameEl.classList.add('is-selected');
-      } else {
-        nameEl.textContent = emptyText;
-        nameEl.classList.remove('is-selected');
+      }
+
+      if (imgEl) {
+        imgEl.src = objectUrl;
+        imgEl.hidden = false;
+      }
+
+      if (placeholderEl) {
+        placeholderEl.hidden = true;
+      }
+
+      if (previewBox) {
+        previewBox.classList.add('has-image');
       }
     }
 
@@ -94,15 +177,22 @@
       }
 
       while (current > qty) {
-        wrapper.removeChild(wrapper.lastElementChild);
+        var last = wrapper.lastElementChild;
+        if (last) {
+          var fileInput = last.querySelector('input[type="file"]');
+          revokePreviewUrl(fileInput);
+        }
+        wrapper.removeChild(last);
         current--;
       }
     }
 
     function validateFileSize(event) {
       var input = event.target;
-      if (!input || input.type !== 'file' || !input.files || !input.files[0]) {
-        updateFileNameDisplay(input);
+      if (!input || input.type !== 'file') return;
+
+      if (!input.files || !input.files[0]) {
+        updateFilePreview(input);
         return;
       }
 
@@ -111,7 +201,7 @@
         input.value = '';
       }
 
-      updateFileNameDisplay(input);
+      updateFilePreview(input);
     }
 
     if (qtyInput) {
