@@ -23,7 +23,6 @@
     var countryOptionsHtml = buildCountryOptionsHtml(countries);
 
     if (form) {
-      form.setAttribute('enctype', 'multipart/form-data');
       form.setAttribute('method', 'post');
       layoutCartForm(form, box);
       qtyInput = form.querySelector('input.qty');
@@ -133,7 +132,7 @@
         var nameInput = player.querySelector('[name*="[name]"]');
         var numberInput = player.querySelector('[name*="[number]"]');
         var countryInput = player.querySelector('.alexita-country__value');
-        var fileInput = player.querySelector('.alexita-file__input');
+        var photoUrlInput = player.querySelector('.alexita-photo-url');
 
         if (nameInput) {
           nameInput.name = 'alexita_players[' + index + '][name]';
@@ -146,9 +145,8 @@
         if (countryInput) {
           countryInput.name = 'alexita_players[' + index + '][country]';
         }
-        if (fileInput) {
-          fileInput.name = 'alexita_photo_' + index;
-          fileInput.id = 'alexita-photo-' + index;
+        if (photoUrlInput) {
+          photoUrlInput.name = 'alexita_players[' + index + '][photo_url]';
         }
       });
     }
@@ -166,7 +164,13 @@
       for (i = 0; i < players.length; i++) {
         var playerNumber = i + 1;
         var countryValue = players[i].querySelector('.alexita-country__value');
+        var photoUrlInput = players[i].querySelector('.alexita-photo-url');
         var fileInput = players[i].querySelector('.alexita-file__input');
+
+        if (players[i].classList.contains('is-uploading')) {
+          alert(text('uploadPending', 'Espera a que termine de subir la foto de la unidad %d.').replace('%d', String(playerNumber)));
+          return false;
+        }
 
         if (countryValue && !countryValue.value) {
           alert(text('missingCountry', 'Selecciona un país para la unidad %d.').replace('%d', String(playerNumber)));
@@ -177,7 +181,7 @@
           return false;
         }
 
-        if (!fileInput || !fileInput.files || !fileInput.files.length) {
+        if (!photoUrlInput || !photoUrlInput.value) {
           alert(text('missingPhoto', 'Falta la foto de la unidad %d.').replace('%d', String(playerNumber)));
           if (fileInput) fileInput.focus();
           return false;
@@ -187,8 +191,7 @@
       return true;
     }
 
-    function prepareFormForMultipartSubmit(cartForm) {
-      cartForm.setAttribute('enctype', 'multipart/form-data');
+    function prepareFormForSubmit(cartForm) {
       cartForm.setAttribute('method', 'post');
       reindexPlayerFields();
     }
@@ -240,7 +243,7 @@
 
     function bindCartFormSubmit(cartForm) {
       cartForm.addEventListener('submit', function (event) {
-        prepareFormForMultipartSubmit(cartForm);
+        prepareFormForSubmit(cartForm);
         if (!validatePlayersBeforeSubmit()) {
           event.preventDefault();
         }
@@ -264,7 +267,7 @@
           return;
         }
 
-        prepareFormForMultipartSubmit(cartForm);
+        prepareFormForSubmit(cartForm);
 
         if (!validatePlayersBeforeSubmit()) {
           event.preventDefault();
@@ -322,11 +325,12 @@
                 '<img class="alexita-file__img" alt="' + text('previewAlt', 'Vista previa de la foto') + '">' +
                 '<span class="alexita-file__placeholder">' + text('previewEmpty', 'Sin foto') + '</span>' +
               '</div>' +
+              '<input type="hidden" class="alexita-photo-url" name="alexita_players[' + index + '][photo_url]" value="">' +
               '<div class="alexita-file__controls">' +
                 '<div class="alexita-file__picker">' +
                   '<label class="alexita-file__trigger">' +
                     '<span class="alexita-file__trigger-text">' + text('choosePhoto', 'Elegir foto') + '</span>' +
-                    '<input class="alexita-file__input" id="alexita-photo-' + index + '" type="file" name="alexita_photo_' + index + '" accept="image/jpeg,image/png,image/webp" required>' +
+                    '<input class="alexita-file__input" id="alexita-photo-' + index + '" type="file" accept="image/jpeg,image/png,image/webp">' +
                   '</label>' +
                 '</div>' +
                 '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
@@ -379,7 +383,157 @@
       delete input.dataset.previewUrl;
     }
 
-    function updateFilePreview(input) {
+    function setPreviewFromUrl(input, url, fileName) {
+      var player = input.closest('.alexita-player');
+      var fileWrap = input.closest('.alexita-file');
+      if (!fileWrap) return;
+
+      var nameEl = fileWrap.querySelector('.alexita-file__name');
+      var imgEl = fileWrap.querySelector('.alexita-file__img');
+      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
+      var previewBox = fileWrap.querySelector('.alexita-file__preview');
+
+      if (nameEl) {
+        nameEl.textContent = fileName || url.split('/').pop();
+        nameEl.classList.add('is-selected');
+      }
+      if (imgEl) {
+        imgEl.src = url;
+      }
+      if (placeholderEl) {
+        placeholderEl.hidden = true;
+      }
+      if (previewBox) {
+        previewBox.classList.add('has-image');
+      }
+      if (player) {
+        player.classList.add('is-uploaded');
+      }
+    }
+
+    function clearPhotoState(input) {
+      var player = input.closest('.alexita-player');
+      var fileWrap = input.closest('.alexita-file');
+      var photoUrlInput = player ? player.querySelector('.alexita-photo-url') : null;
+
+      if (photoUrlInput) {
+        photoUrlInput.value = '';
+      }
+      if (player) {
+        player.classList.remove('is-uploaded', 'is-uploading');
+      }
+
+      revokePreviewUrl(input);
+
+      if (!fileWrap) return;
+
+      var nameEl = fileWrap.querySelector('.alexita-file__name');
+      var imgEl = fileWrap.querySelector('.alexita-file__img');
+      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
+      var previewBox = fileWrap.querySelector('.alexita-file__preview');
+      var emptyText = nameEl ? (nameEl.getAttribute('data-empty') || text('noFileSelected', 'Ninguna foto seleccionada')) : '';
+
+      if (nameEl) {
+        nameEl.textContent = emptyText;
+        nameEl.classList.remove('is-selected');
+      }
+      if (imgEl) {
+        imgEl.removeAttribute('src');
+      }
+      if (placeholderEl) {
+        placeholderEl.hidden = false;
+      }
+      if (previewBox) {
+        previewBox.classList.remove('has-image');
+      }
+    }
+
+    function uploadPlayerPhoto(input) {
+      if (!input || !input.files || !input.files[0]) {
+        clearPhotoState(input);
+        return;
+      }
+
+      if (!config.ajaxUrl || !config.uploadNonce) {
+        updateFilePreviewLocal(input);
+        return;
+      }
+
+      var file = input.files[0];
+      var player = input.closest('.alexita-player');
+      var photoUrlInput = player ? player.querySelector('.alexita-photo-url') : null;
+      var triggerText = player ? player.querySelector('.alexita-file__trigger-text') : null;
+      var originalLabel = triggerText ? triggerText.textContent : '';
+
+      if (file.size > maxFileSize) {
+        alert(text('fileTooLarge', 'La foto supera el máximo permitido de 2.5 MB.'));
+        input.value = '';
+        clearPhotoState(input);
+        return;
+      }
+
+      if (photoUrlInput) {
+        photoUrlInput.value = '';
+      }
+
+      updateFilePreviewLocal(input);
+
+      if (player) {
+        player.classList.add('is-uploading');
+        player.classList.remove('is-uploaded');
+      }
+      if (triggerText) {
+        triggerText.textContent = text('uploading', 'Subiendo foto…');
+      }
+
+      var body = new FormData();
+      body.append('action', config.uploadAction || 'alexita_upload_player_photo');
+      body.append('nonce', config.uploadNonce);
+      body.append('photo', file);
+
+      fetch(config.ajaxUrl, {
+        method: 'POST',
+        body: body,
+        credentials: 'same-origin'
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (player) {
+            player.classList.remove('is-uploading');
+          }
+          if (triggerText) {
+            triggerText.textContent = originalLabel || text('choosePhoto', 'Elegir foto');
+          }
+
+          if (data && data.success && data.data && data.data.url) {
+            if (photoUrlInput) {
+              photoUrlInput.value = data.data.url;
+            }
+            setPreviewFromUrl(input, data.data.url, file.name);
+            return;
+          }
+
+          var message = (data && data.data && data.data.message) ? data.data.message : text('uploadFailed', 'No se pudo subir la foto. Intenta de nuevo.');
+          alert(message);
+          input.value = '';
+          clearPhotoState(input);
+        })
+        .catch(function () {
+          if (player) {
+            player.classList.remove('is-uploading');
+          }
+          if (triggerText) {
+            triggerText.textContent = originalLabel || text('choosePhoto', 'Elegir foto');
+          }
+          alert(text('uploadFailed', 'No se pudo subir la foto. Intenta de nuevo.'));
+          input.value = '';
+          clearPhotoState(input);
+        });
+    }
+
+    function updateFilePreviewLocal(input) {
       if (!input) return;
 
       var fileWrap = input.closest('.alexita-file');
@@ -394,19 +548,6 @@
       revokePreviewUrl(input);
 
       if (!input.files || !input.files[0]) {
-        if (nameEl) {
-          nameEl.textContent = emptyText;
-          nameEl.classList.remove('is-selected');
-        }
-        if (imgEl) {
-          imgEl.removeAttribute('src');
-        }
-        if (placeholderEl) {
-          placeholderEl.hidden = false;
-        }
-        if (previewBox) {
-          previewBox.classList.remove('has-image');
-        }
         return;
       }
 
@@ -418,15 +559,12 @@
         nameEl.textContent = file.name;
         nameEl.classList.add('is-selected');
       }
-
       if (imgEl) {
         imgEl.src = objectUrl;
       }
-
       if (placeholderEl) {
         placeholderEl.hidden = true;
       }
-
       if (previewBox) {
         previewBox.classList.add('has-image');
       }
@@ -456,25 +594,20 @@
       reindexPlayerFields();
     }
 
-    function validateFileSize(event) {
+    function handleFileInputChange(event) {
       var input = event.target;
       if (!input || input.type !== 'file') return;
 
       if (!input.files || !input.files[0]) {
-        updateFilePreview(input);
+        clearPhotoState(input);
         return;
       }
 
-      if (input.files[0].size > maxFileSize) {
-        alert(text('fileTooLarge', 'La foto supera el máximo permitido de 2.5 MB.'));
-        input.value = '';
-      }
-
-      updateFilePreview(input);
+      uploadPlayerPhoto(input);
     }
 
     if (wrapper) {
-      wrapper.addEventListener('change', validateFileSize);
+      wrapper.addEventListener('change', handleFileInputChange);
 
       wrapper.addEventListener('click', function (event) {
         var toggle = event.target.closest('.alexita-country__toggle');

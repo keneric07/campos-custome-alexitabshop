@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.1.3
+ * Version: 1.2.0
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,10 +18,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.1.3';
+	const VERSION = '1.2.0';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
+	const UPLOAD_NONCE_ACTION = 'alexita_personalizer_upload_photo';
+	const UPLOAD_NONCE_NAME = 'alexita_upload_nonce';
 	const MAX_FILE_SIZE = 2621440; // 2.5 MB en bytes.
 
 	private static $prepared_personalization = array();
@@ -57,6 +59,10 @@ final class Alexita_Product_Personalizer {
 		// Evita que cambien la cantidad después de personalizar.
 		add_filter( 'woocommerce_update_cart_validation', array( __CLASS__, 'prevent_cart_quantity_change' ), 10, 4 );
 		add_filter( 'woocommerce_cart_item_quantity', array( __CLASS__, 'lock_cart_quantity_input' ), 10, 3 );
+
+		// Subida anticipada de fotos (móvil / evita $_FILES en add to cart).
+		add_action( 'wp_ajax_alexita_upload_player_photo', array( __CLASS__, 'ajax_upload_player_photo' ) );
+		add_action( 'wp_ajax_nopriv_alexita_upload_player_photo', array( __CLASS__, 'ajax_upload_player_photo' ) );
 	}
 
 	public static function declare_compatibility() {
@@ -230,16 +236,13 @@ final class Alexita_Product_Personalizer {
 			true
 		);
 
-		wp_add_inline_script(
-			'alexita-product-personalizer',
-			'document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("alexita-personalizer");if(!b)return;var f=b.closest("form.cart")||document.querySelector("form.cart");if(f){f.setAttribute("enctype","multipart/form-data");f.setAttribute("method","post");}});',
-			'before'
-		);
-
 		wp_localize_script(
 			'alexita-product-personalizer',
 			'AlexitaPersonalizer',
 			array(
+				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+				'uploadNonce'     => wp_create_nonce( self::UPLOAD_NONCE_ACTION ),
+				'uploadAction'    => 'alexita_upload_player_photo',
 				'maxFileSize'     => self::MAX_FILE_SIZE,
 				'maxFileSizeText' => '2.5 MB',
 				'countries'       => self::get_countries_for_js(),
@@ -261,6 +264,9 @@ final class Alexita_Product_Personalizer {
 					'fileTooLarge'    => __( 'La foto supera el máximo permitido de 2.5 MB.', 'alexita-product-personalizer' ),
 					'missingPhoto'    => __( 'Falta la foto de la unidad %d.', 'alexita-product-personalizer' ),
 					'missingCountry'  => __( 'Selecciona un país para la unidad %d.', 'alexita-product-personalizer' ),
+					'uploading'       => __( 'Subiendo foto…', 'alexita-product-personalizer' ),
+					'uploadFailed'    => __( 'No se pudo subir la foto. Intenta de nuevo.', 'alexita-product-personalizer' ),
+					'uploadPending'   => __( 'Espera a que termine de subir la foto de la unidad %d.', 'alexita-product-personalizer' ),
 				),
 			)
 		);
@@ -355,6 +361,22 @@ final class Alexita_Product_Personalizer {
 			if ( ! $country ) {
 				wc_add_notice( sprintf( __( 'Selecciona un país válido para la unidad %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
 				return false;
+			}
+
+			$photo_url = isset( $players_post[ $i ]['photo_url'] ) ? esc_url_raw( wp_unslash( $players_post[ $i ]['photo_url'] ) ) : '';
+
+			if ( $photo_url && self::is_valid_uploaded_photo_url( $photo_url ) ) {
+				$prepared[] = array(
+					'name'         => $name,
+					'number'       => $number,
+					'country_code' => $country['code'],
+					'country_name' => $country['name'],
+					'country_flag' => $country['flag'],
+					'photo_url'    => $photo_url,
+					'photo_file'   => sanitize_text_field( self::url_to_upload_path( $photo_url ) ),
+					'photo_type'   => '',
+				);
+				continue;
 			}
 
 			$file = self::get_player_file( $i );
@@ -501,6 +523,71 @@ final class Alexita_Product_Personalizer {
 			$quantity,
 			esc_attr( $cart_item_key )
 		);
+	}
+
+	public static function ajax_upload_player_photo() {
+		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), self::UPLOAD_NONCE_ACTION ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'No se pudo validar la subida. Recarga la página.', 'alexita-product-personalizer' ) ),
+				403
+			);
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+
+		$file = isset( $_FILES['photo'] ) ? $_FILES['photo'] : null;
+		$error = self::validate_file( $file, 1 );
+
+		if ( $error ) {
+			wp_send_json_error( array( 'message' => $error ), 400 );
+		}
+
+		$upload = wp_handle_upload(
+			$file,
+			array(
+				'test_form' => false,
+				'mimes'     => self::allowed_mimes(),
+			)
+		);
+
+		if ( empty( $upload['url'] ) || ! empty( $upload['error'] ) ) {
+			$message = ! empty( $upload['error'] ) ? $upload['error'] : __( 'Error desconocido al subir la imagen.', 'alexita-product-personalizer' );
+			wp_send_json_error( array( 'message' => $message ), 500 );
+		}
+
+		wp_send_json_success(
+			array(
+				'url'  => esc_url_raw( $upload['url'] ),
+				'file' => isset( $upload['file'] ) ? sanitize_text_field( $upload['file'] ) : '',
+				'type' => isset( $upload['type'] ) ? sanitize_text_field( $upload['type'] ) : '',
+			)
+		);
+	}
+
+	private static function is_valid_uploaded_photo_url( $url ) {
+		$url = esc_url_raw( $url );
+
+		if ( ! $url ) {
+			return false;
+		}
+
+		$uploads = wp_upload_dir();
+
+		if ( empty( $uploads['baseurl'] ) ) {
+			return false;
+		}
+
+		return 0 === strpos( $url, trailingslashit( $uploads['baseurl'] ) );
+	}
+
+	private static function url_to_upload_path( $url ) {
+		$uploads = wp_upload_dir();
+
+		if ( empty( $uploads['baseurl'] ) || empty( $uploads['basedir'] ) ) {
+			return '';
+		}
+
+		return str_replace( trailingslashit( $uploads['baseurl'] ), trailingslashit( $uploads['basedir'] ), $url );
 	}
 
 	private static function normalize_uploaded_file( $file ) {
