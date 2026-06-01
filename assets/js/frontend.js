@@ -115,10 +115,50 @@
       cartForm.dataset.alexitaLayoutDone = '1';
     }
 
+    function reindexPlayerFields() {
+      if (!wrapper) {
+        return;
+      }
+
+      var players = wrapper.querySelectorAll('.alexita-player');
+
+      players.forEach(function (player, index) {
+        player.setAttribute('data-player-index', String(index));
+
+        var badge = player.querySelector('.alexita-player__badge');
+        var title = player.querySelector('.alexita-player__title');
+        if (badge) badge.textContent = String(index + 1);
+        if (title) title.textContent = text('player', 'Unidad') + ' ' + (index + 1);
+
+        var nameInput = player.querySelector('[name*="[name]"]');
+        var numberInput = player.querySelector('[name*="[number]"]');
+        var countryInput = player.querySelector('.alexita-country__value');
+        var fileInput = player.querySelector('.alexita-file__input');
+
+        if (nameInput) {
+          nameInput.name = 'alexita_players[' + index + '][name]';
+          nameInput.id = 'alexita-player-name-' + index;
+        }
+        if (numberInput) {
+          numberInput.name = 'alexita_players[' + index + '][number]';
+          numberInput.id = 'alexita-player-number-' + index;
+        }
+        if (countryInput) {
+          countryInput.name = 'alexita_players[' + index + '][country]';
+        }
+        if (fileInput) {
+          fileInput.name = 'alexita_photo_' + index;
+          fileInput.id = 'alexita-photo-' + index;
+        }
+      });
+    }
+
     function validatePlayersBeforeSubmit() {
       if (!wrapper) {
         return true;
       }
+
+      reindexPlayerFields();
 
       var players = wrapper.querySelectorAll('.alexita-player');
       var i;
@@ -147,9 +187,15 @@
       return true;
     }
 
+    function prepareFormForMultipartSubmit(cartForm) {
+      cartForm.setAttribute('enctype', 'multipart/form-data');
+      cartForm.setAttribute('method', 'post');
+      reindexPlayerFields();
+    }
+
     function bindCartFormSubmit(cartForm) {
       cartForm.addEventListener('submit', function (event) {
-        cartForm.setAttribute('enctype', 'multipart/form-data');
+        prepareFormForMultipartSubmit(cartForm);
         if (!validatePlayersBeforeSubmit()) {
           event.preventDefault();
         }
@@ -173,7 +219,7 @@
           return;
         }
 
-        $form.attr('enctype', 'multipart/form-data');
+        prepareFormForMultipartSubmit(cartForm);
 
         if (!validatePlayersBeforeSubmit()) {
           event.preventDefault();
@@ -181,13 +227,11 @@
           return false;
         }
 
-        // Temas que envían por AJAX no incluyen archivos: forzar POST clásico del formulario.
-        if ($button.hasClass('ajax_add_to_cart')) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          cartForm.submit();
-          return false;
-        }
+        // AJAX y algunos temas móviles no envían archivos: POST multipart nativo del formulario.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        cartForm.submit();
+        return false;
       });
     }
 
@@ -211,7 +255,7 @@
           '<div class="alexita-player__row">' +
             '<div class="alexita-field alexita-field--name">' +
               '<label for="alexita-player-name-' + index + '">' + text('name', 'Nombre') + '</label>' +
-              '<input id="alexita-player-name-' + index + '" type="text" name="alexita_players[' + index + '][name]" placeholder="' + text('nameExample', 'Ej.: Annie') + '" maxlength="30" required autocomplete="name">' +
+              '<input id="alexita-player-name-' + index + '" type="text" name="alexita_players[' + index + '][name]" placeholder="' + text('nameExample', 'Ej.: Alexita') + '" maxlength="30" required autocomplete="name">' +
             '</div>' +
             '<div class="alexita-field alexita-field--number">' +
               '<label for="alexita-player-number-' + index + '">' + text('number', 'Número') + '</label>' +
@@ -230,7 +274,7 @@
                 '<div class="alexita-file__picker">' +
                   '<label class="alexita-file__trigger">' +
                     '<span class="alexita-file__trigger-text">' + text('choosePhoto', 'Elegir foto') + '</span>' +
-                    '<input class="alexita-file__input" id="alexita-player-photo-' + index + '" type="file" name="alexita_players[' + index + '][photo]" accept="image/jpeg,image/png,image/webp" required>' +
+                    '<input class="alexita-file__input" id="alexita-photo-' + index + '" type="file" name="alexita_photo_' + index + '" accept="image/jpeg,image/png,image/webp" required>' +
                   '</label>' +
                 '</div>' +
                 '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
@@ -356,6 +400,8 @@
         wrapper.removeChild(last);
         current--;
       }
+
+      reindexPlayerFields();
     }
 
     function validateFileSize(event) {

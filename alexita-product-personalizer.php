@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.1.1';
+	const VERSION = '1.1.2';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -251,7 +251,7 @@ final class Alexita_Product_Personalizer {
 					'countryChoose'   => __( 'Selecciona tu país', 'alexita-product-personalizer' ),
 					'countrySearch'   => __( 'Buscar país…', 'alexita-product-personalizer' ),
 					'photo'           => __( 'Foto del rostro', 'alexita-product-personalizer' ),
-					'nameExample'     => __( 'Ej.: Annie', 'alexita-product-personalizer' ),
+					'nameExample'     => __( 'Ej.: Alexita', 'alexita-product-personalizer' ),
 					'numExample'      => __( 'Ej.: 14', 'alexita-product-personalizer' ),
 					'photoHint'       => __( 'JPG, PNG o WebP · máx. 2.5 MB', 'alexita-product-personalizer' ),
 					'choosePhoto'     => __( 'Elegir foto', 'alexita-product-personalizer' ),
@@ -503,59 +503,90 @@ final class Alexita_Product_Personalizer {
 		);
 	}
 
-	private static function get_player_file( $index ) {
-		$index = absint( $index );
-
-		if ( empty( $_FILES['alexita_players'] ) || ! is_array( $_FILES['alexita_players'] ) ) {
+	private static function normalize_uploaded_file( $file ) {
+		if ( empty( $file ) || ! is_array( $file ) ) {
 			return null;
-		}
-
-		$uploads = $_FILES['alexita_players'];
-
-		if ( ! isset( $uploads['name'][ $index ]['photo'] ) ) {
-			return null;
-		}
-
-		$file = array();
-
-		foreach ( array( 'name', 'type', 'tmp_name', 'error', 'size' ) as $key ) {
-			if ( isset( $uploads[ $key ][ $index ]['photo'] ) ) {
-				$file[ $key ] = $uploads[ $key ][ $index ]['photo'];
-			}
 		}
 
 		if ( ! isset( $file['tmp_name'] ) || '' === $file['tmp_name'] ) {
 			return null;
 		}
 
+		if ( isset( $file['error'] ) && UPLOAD_ERR_NO_FILE === (int) $file['error'] ) {
+			return null;
+		}
+
 		return $file;
+	}
+
+	private static function get_player_file( $index ) {
+		$index = absint( $index );
+
+		// Campo plano alexita_photo_0 (fiable en móvil).
+		$flat_key = 'alexita_photo_' . $index;
+		if ( ! empty( $_FILES[ $flat_key ] ) ) {
+			$file = self::normalize_uploaded_file( $_FILES[ $flat_key ] );
+			if ( $file ) {
+				return $file;
+			}
+		}
+
+		// Compatibilidad: alexita_players[0][photo].
+		if ( ! empty( $_FILES['alexita_players'] ) && is_array( $_FILES['alexita_players'] ) ) {
+			$uploads = $_FILES['alexita_players'];
+			$keys    = array( $index, (string) $index );
+
+			foreach ( $keys as $key ) {
+				if ( ! isset( $uploads['name'][ $key ]['photo'] ) ) {
+					continue;
+				}
+
+				$file = array();
+
+				foreach ( array( 'name', 'type', 'tmp_name', 'error', 'size' ) as $field ) {
+					if ( isset( $uploads[ $field ][ $key ]['photo'] ) ) {
+						$file[ $field ] = $uploads[ $field ][ $key ]['photo'];
+					}
+				}
+
+				$file = self::normalize_uploaded_file( $file );
+				if ( $file ) {
+					return $file;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	private static function validate_file( $file, $player_number ) {
 		if ( empty( $file ) ) {
-			return sprintf( __( 'Falta la foto del Jugador %d.', 'alexita-product-personalizer' ), $player_number );
+			return sprintf( __( 'Falta la foto de la unidad %d. Vuelve a elegir la imagen y agrega al carrito.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		if ( isset( $file['error'] ) && UPLOAD_ERR_NO_FILE === (int) $file['error'] ) {
-			return sprintf( __( 'Falta la foto del Jugador %d.', 'alexita-product-personalizer' ), $player_number );
+			return sprintf( __( 'Falta la foto de la unidad %d. Vuelve a elegir la imagen y agrega al carrito.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		if ( isset( $file['error'] ) && UPLOAD_ERR_OK !== (int) $file['error'] ) {
-			return sprintf( __( 'La foto del Jugador %d no se pudo subir correctamente.', 'alexita-product-personalizer' ), $player_number );
+			if ( UPLOAD_ERR_INI_SIZE === (int) $file['error'] || UPLOAD_ERR_FORM_SIZE === (int) $file['error'] ) {
+				return sprintf( __( 'La foto de la unidad %d supera el límite del servidor.', 'alexita-product-personalizer' ), $player_number );
+			}
+			return sprintf( __( 'La foto de la unidad %d no se pudo subir correctamente.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
-			return sprintf( __( 'La foto del Jugador %d no es válida.', 'alexita-product-personalizer' ), $player_number );
+			return sprintf( __( 'La foto de la unidad %d no llegó al servidor. Usa JPG, PNG o WebP e intenta de nuevo.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		if ( isset( $file['size'] ) && absint( $file['size'] ) > self::MAX_FILE_SIZE ) {
-			return sprintf( __( 'La foto del Jugador %d no debe pesar más de 2.5 MB.', 'alexita-product-personalizer' ), $player_number );
+			return sprintf( __( 'La foto de la unidad %d no debe pesar más de 2.5 MB.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		$checked = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], self::allowed_mimes() );
 
 		if ( empty( $checked['type'] ) || ! in_array( $checked['type'], array_values( self::allowed_mimes() ), true ) ) {
-			return sprintf( __( 'La foto del Jugador %d debe ser JPG, PNG o WebP.', 'alexita-product-personalizer' ), $player_number );
+			return sprintf( __( 'La foto de la unidad %d debe ser JPG, PNG o WebP.', 'alexita-product-personalizer' ), $player_number );
 		}
 
 		return false;
