@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.0.0
+ * Version: 1.0.2
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.0.0';
+	const VERSION = '1.0.2';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -145,13 +145,16 @@ final class Alexita_Product_Personalizer {
 				'maxFileSize'     => self::MAX_FILE_SIZE,
 				'maxFileSizeText' => '2.5 MB',
 				'labels'          => array(
-					'player'       => __( 'Jugador', 'alexita-product-personalizer' ),
-					'name'         => __( 'Nombre del jugador', 'alexita-product-personalizer' ),
-					'number'       => __( 'Número del jugador', 'alexita-product-personalizer' ),
-					'photo'        => __( 'Foto del rostro', 'alexita-product-personalizer' ),
-					'nameExample'  => __( 'Ejemplo: Annie', 'alexita-product-personalizer' ),
-					'numExample'   => __( 'Ejemplo: 14', 'alexita-product-personalizer' ),
-					'fileTooLarge' => __( 'La foto supera el máximo permitido de 2.5 MB.', 'alexita-product-personalizer' ),
+					'player'          => __( 'Unidad', 'alexita-product-personalizer' ),
+					'name'            => __( 'Nombre', 'alexita-product-personalizer' ),
+					'number'          => __( 'Número', 'alexita-product-personalizer' ),
+					'photo'           => __( 'Foto del rostro', 'alexita-product-personalizer' ),
+					'nameExample'     => __( 'Ej.: Annie', 'alexita-product-personalizer' ),
+					'numExample'      => __( 'Ej.: 14', 'alexita-product-personalizer' ),
+					'photoHint'       => __( 'JPG, PNG o WebP · máx. 2.5 MB', 'alexita-product-personalizer' ),
+					'choosePhoto'     => __( 'Elegir foto', 'alexita-product-personalizer' ),
+					'noFileSelected'  => __( 'Ninguna foto seleccionada', 'alexita-product-personalizer' ),
+					'fileTooLarge'    => __( 'La foto supera el máximo permitido de 2.5 MB.', 'alexita-product-personalizer' ),
 				),
 			)
 		);
@@ -167,12 +170,19 @@ final class Alexita_Product_Personalizer {
 		wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME );
 		?>
 		<div id="alexita-personalizer" class="alexita-personalizer" data-max-file-size="<?php echo esc_attr( self::MAX_FILE_SIZE ); ?>">
-			<h3><?php echo esc_html__( 'Personaliza tu jugador', 'alexita-product-personalizer' ); ?></h3>
-			<p class="alexita-personalizer__note">
-				<?php echo esc_html__( 'Completa nombre, número y foto por cada unidad que vas a comprar.', 'alexita-product-personalizer' ); ?>
-				<strong><?php echo esc_html__( 'Máximo por foto: 2.5 MB.', 'alexita-product-personalizer' ); ?></strong>
-			</p>
-			<div id="alexita-players-wrapper" class="alexita-players-wrapper"></div>
+			<header class="alexita-personalizer__header">
+				<p class="alexita-personalizer__eyebrow"><?php echo esc_html__( 'Tu diseño único', 'alexita-product-personalizer' ); ?></p>
+				<h3 class="alexita-personalizer__title"><?php echo esc_html__( 'Personaliza el tuyo', 'alexita-product-personalizer' ); ?></h3>
+				<p class="alexita-personalizer__subtitle">
+					<?php echo esc_html__( 'Indica nombre, número y foto por cada pieza. Si cambias la cantidad, se actualizan los formularios.', 'alexita-product-personalizer' ); ?>
+				</p>
+				<ul class="alexita-personalizer__chips" aria-hidden="true">
+					<li><?php echo esc_html__( 'Nombre', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'Número', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'Foto', 'alexita-product-personalizer' ); ?></li>
+				</ul>
+			</header>
+			<div id="alexita-players-wrapper" class="alexita-players-wrapper" role="group" aria-label="<?php echo esc_attr__( 'Datos de personalización', 'alexita-product-personalizer' ); ?>"></div>
 		</div>
 		<?php
 	}
