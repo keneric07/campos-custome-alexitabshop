@@ -118,7 +118,7 @@ return array(
 	array(
 		'code' => 'SCO',
 		'name' => 'Escocia',
-		'flag' => '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+		'flag' => '🏴',
 	),
 	array(
 		'code' => 'ES',
@@ -143,7 +143,7 @@ return array(
 	array(
 		'code' => 'ENG',
 		'name' => 'Inglaterra',
-		'flag' => '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+		'flag' => '🏴',
 	),
 	array(
 		'code' => 'IQ',

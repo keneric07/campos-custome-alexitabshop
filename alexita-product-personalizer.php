@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.5
+ * Version: 1.2.6
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.5';
+	const VERSION = '1.2.6';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -38,7 +38,11 @@ final class Alexita_Product_Personalizer {
 			return;
 		}
 
-		add_action( 'before_woocommerce_init', array( __CLASS__, 'declare_compatibility' ) );
+		if ( did_action( 'before_woocommerce_init' ) ) {
+			self::declare_compatibility();
+		} else {
+			add_action( 'before_woocommerce_init', array( __CLASS__, 'declare_compatibility' ) );
+		}
 
 		// Admin: activar/desactivar por producto.
 		add_action( 'woocommerce_product_options_general_product_data', array( __CLASS__, 'add_product_option' ) );
@@ -85,16 +89,118 @@ final class Alexita_Product_Personalizer {
 	}
 
 	/**
+	 * @param mixed $product Producto WooCommerce u otro valor.
+	 */
+	private static function is_wc_product( $product ) {
+		return is_object( $product ) && is_a( $product, 'WC_Product' );
+	}
+
+	/**
+	 * Longitud de cadena multibyte sin depender de mbstring.
+	 *
+	 * @param string $string Texto.
+	 */
+	private static function str_length( $string ) {
+		$string = (string) $string;
+
+		if ( function_exists( 'mb_strlen' ) ) {
+			return (int) mb_strlen( $string );
+		}
+
+		if ( function_exists( 'iconv_strlen' ) ) {
+			$length = @iconv_strlen( $string, 'UTF-8' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( false !== $length ) {
+				return (int) $length;
+			}
+		}
+
+		if ( preg_match_all( '/./u', $string, $matches ) ) {
+			return count( $matches[0] );
+		}
+
+		return strlen( $string );
+	}
+
+	/**
+	 * Convierte un codepoint Unicode a UTF-8 sin depender de mb_chr.
+	 *
+	 * @param int $codepoint Codepoint Unicode.
+	 */
+	private static function unicode_to_utf8( $codepoint ) {
+		$codepoint = (int) $codepoint;
+
+		if ( $codepoint <= 0 ) {
+			return '';
+		}
+
+		if ( function_exists( 'mb_chr' ) ) {
+			return (string) mb_chr( $codepoint, 'UTF-8' );
+		}
+
+		if ( $codepoint <= 0x7F ) {
+			return chr( $codepoint );
+		}
+
+		if ( $codepoint <= 0x7FF ) {
+			return chr( 0xC0 | ( $codepoint >> 6 ) ) . chr( 0x80 | ( $codepoint & 0x3F ) );
+		}
+
+		if ( $codepoint <= 0xFFFF ) {
+			return chr( 0xE0 | ( $codepoint >> 12 ) )
+				. chr( 0x80 | ( ( $codepoint >> 6 ) & 0x3F ) )
+				. chr( 0x80 | ( $codepoint & 0x3F ) );
+		}
+
+		if ( $codepoint <= 0x10FFFF ) {
+			return chr( 0xF0 | ( $codepoint >> 18 ) )
+				. chr( 0x80 | ( ( $codepoint >> 12 ) & 0x3F ) )
+				. chr( 0x80 | ( ( $codepoint >> 6 ) & 0x3F ) )
+				. chr( 0x80 | ( $codepoint & 0x3F ) );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Normaliza texto para JSON / JS (UTF-8 válido).
+	 *
+	 * @param string $value Texto.
+	 */
+	private static function sanitize_utf8( $value ) {
+		$value = (string) $value;
+
+		if ( function_exists( 'wp_check_invalid_utf8' ) ) {
+			return wp_check_invalid_utf8( $value, true );
+		}
+
+		if ( function_exists( 'mb_convert_encoding' ) ) {
+			return (string) mb_convert_encoding( $value, 'UTF-8', 'UTF-8' );
+		}
+
+		return $value;
+	}
+
+	/**
 	 * @return array<int, array{code: string, name: string, iso?: string, flag?: string, host?: bool}>
 	 */
 	private static function get_countries_list() {
 		static $countries = null;
 
-		if ( null === $countries ) {
-			$countries = include __DIR__ . '/includes/countries.php';
+		if ( null !== $countries ) {
+			return $countries;
 		}
 
-		return is_array( $countries ) ? $countries : array();
+		$countries = array();
+		$file      = __DIR__ . '/includes/countries.php';
+
+		if ( is_readable( $file ) ) {
+			$loaded = include $file;
+			if ( is_array( $loaded ) ) {
+				$countries = $loaded;
+			}
+		}
+
+		return $countries;
 	}
 
 	private static function iso_to_flag( $iso ) {
@@ -107,10 +213,10 @@ final class Alexita_Product_Personalizer {
 		$flag = '';
 
 		for ( $i = 0; $i < 2; $i++ ) {
-			$flag .= mb_chr( ord( $iso[ $i ] ) + 127397, 'UTF-8' );
+			$flag .= self::unicode_to_utf8( ord( $iso[ $i ] ) + 127397 );
 		}
 
-		return $flag;
+		return self::sanitize_utf8( $flag );
 	}
 
 	/**
@@ -120,8 +226,12 @@ final class Alexita_Product_Personalizer {
 		$list = array();
 
 		foreach ( self::get_countries_list() as $country ) {
-			$code = isset( $country['code'] ) ? (string) $country['code'] : '';
-			$name = isset( $country['name'] ) ? (string) $country['name'] : '';
+			if ( ! is_array( $country ) ) {
+				continue;
+			}
+
+			$code = isset( $country['code'] ) ? self::sanitize_utf8( (string) $country['code'] ) : '';
+			$name = isset( $country['name'] ) ? self::sanitize_utf8( (string) $country['name'] ) : '';
 
 			if ( '' === $code || '' === $name ) {
 				continue;
@@ -130,13 +240,13 @@ final class Alexita_Product_Personalizer {
 			$flag = '';
 
 			if ( ! empty( $country['flag'] ) ) {
-				$flag = (string) $country['flag'];
+				$flag = self::sanitize_utf8( (string) $country['flag'] );
 			} elseif ( ! empty( $country['iso'] ) ) {
 				$flag = self::iso_to_flag( $country['iso'] );
 			}
 
 			$list[] = array(
-				'code' => $code,
+				'code' => strtoupper( $code ),
 				'name' => $name,
 				'flag' => $flag,
 				'host' => ! empty( $country['host'] ),
@@ -184,13 +294,13 @@ final class Alexita_Product_Personalizer {
 	private static function is_enabled_product( $product_id ) {
 		$product_id = absint( $product_id );
 
-		if ( ! $product_id ) {
+		if ( ! $product_id || ! function_exists( 'wc_get_product' ) ) {
 			return false;
 		}
 
 		$product = wc_get_product( $product_id );
 
-		if ( ! $product ) {
+		if ( ! self::is_wc_product( $product ) ) {
 			return false;
 		}
 
@@ -203,7 +313,11 @@ final class Alexita_Product_Personalizer {
 	public static function add_to_cart_form_action( $action ) {
 		global $product;
 
-		if ( $product && self::is_enabled_product( $product->get_id() ) && is_product() ) {
+		if ( ! self::is_wc_product( $product ) || ! function_exists( 'is_product' ) || ! is_product() ) {
+			return $action;
+		}
+
+		if ( self::is_enabled_product( $product->get_id() ) ) {
 			return get_permalink( $product->get_id() );
 		}
 
@@ -217,8 +331,20 @@ final class Alexita_Product_Personalizer {
 
 		$product_id = get_queried_object_id();
 
-		if ( ! self::is_enabled_product( $product_id ) ) {
+		if ( ! $product_id || ! self::is_enabled_product( $product_id ) ) {
 			return;
+		}
+
+		$countries = array();
+
+		try {
+			$countries = self::get_countries_for_js();
+		} catch ( \Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			$countries = array();
+		}
+
+		if ( ! is_array( $countries ) ) {
+			$countries = array();
 		}
 
 		wp_enqueue_style(
@@ -245,7 +371,7 @@ final class Alexita_Product_Personalizer {
 				'uploadAction'    => 'alexita_upload_player_photo',
 				'maxFileSize'     => self::MAX_FILE_SIZE,
 				'maxFileSizeText' => '2.5 MB',
-				'countries'       => self::get_countries_for_js(),
+				'countries'       => $countries,
 				'labels'          => array(
 					'player'          => __( 'Unidad', 'alexita-product-personalizer' ),
 					'name'            => __( 'Nombre', 'alexita-product-personalizer' ),
@@ -280,7 +406,7 @@ final class Alexita_Product_Personalizer {
 	public static function render_fields() {
 		global $product;
 
-		if ( ! $product || ! self::is_enabled_product( $product->get_id() ) ) {
+		if ( ! self::is_wc_product( $product ) || ! self::is_enabled_product( $product->get_id() ) ) {
 			return;
 		}
 
@@ -306,7 +432,7 @@ final class Alexita_Product_Personalizer {
 	}
 
 	public static function replace_loop_add_to_cart( $html, $product, $args ) {
-		if ( ! $product || ! self::is_enabled_product( $product->get_id() ) ) {
+		if ( ! self::is_wc_product( $product ) || ! self::is_enabled_product( $product->get_id() ) ) {
 			return $html;
 		}
 
@@ -353,7 +479,7 @@ final class Alexita_Product_Personalizer {
 				return false;
 			}
 
-			if ( mb_strlen( $name ) > 30 ) {
+			if ( self::str_length( $name ) > 30 ) {
 				wc_add_notice( sprintf( __( 'El nombre del Jugador %d no debe pasar de 30 caracteres.', 'alexita-product-personalizer' ), $player_number ), 'error' );
 				return false;
 			}
