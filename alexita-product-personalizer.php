@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.4
+ * Version: 1.2.5
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.4';
+	const VERSION = '1.2.5';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -253,6 +253,11 @@ final class Alexita_Product_Personalizer {
 					'country'         => __( 'País', 'alexita-product-personalizer' ),
 					'countryChoose'   => __( 'Selecciona tu país', 'alexita-product-personalizer' ),
 					'countrySearch'   => __( 'Buscar país…', 'alexita-product-personalizer' ),
+					'countryModalTitle' => __( 'Elige tu país', 'alexita-product-personalizer' ),
+					'countryCancel'   => __( 'Cancelar', 'alexita-product-personalizer' ),
+					'countryNoResults' => __( 'Ningún país coincide', 'alexita-product-personalizer' ),
+					'countryHosts'    => __( 'Anfitriones', 'alexita-product-personalizer' ),
+					'countryAll'      => __( 'Todos los países', 'alexita-product-personalizer' ),
 					'photo'           => __( 'Foto del rostro', 'alexita-product-personalizer' ),
 					'nameExample'     => __( 'Ej.: Alexita', 'alexita-product-personalizer' ),
 					'numExample'      => __( 'Ej.: 14', 'alexita-product-personalizer' ),
