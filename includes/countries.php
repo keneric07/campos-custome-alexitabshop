@@ -186,9 +186,10 @@ return array(
 		'iso'  => 'NL',
 	),
 	array(
-		'code' => 'PA',
-		'name' => 'Panamá',
-		'iso'  => 'PA',
+		'code'     => 'PA',
+		'name'     => 'Panamá',
+		'iso'      => 'PA',
+		'featured' => true,
 	),
 	array(
 		'code' => 'PY',

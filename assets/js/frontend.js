@@ -64,9 +64,16 @@
         return '';
       }
 
-      var hosts = list.filter(function (c) { return c.host; });
-      var others = list.filter(function (c) { return !c.host; });
+      var featured = list.filter(function (c) { return c.featured; });
+      var hosts = list.filter(function (c) { return c.host && !c.featured; });
+      var others = list.filter(function (c) { return !c.host && !c.featured; });
       var html = '';
+
+      if (featured.length) {
+        html += featured.map(function (country) {
+          return buildCountryOptionButton(country, 'alexita-country-modal__option--featured');
+        }).join('');
+      }
 
       if (hosts.length) {
         html += '<li class="alexita-country-modal__section" role="presentation">' +
@@ -276,6 +283,17 @@
         if (photoUrlInput) {
           photoUrlInput.name = 'alexita_players[' + index + '][photo_url]';
         }
+
+        var fileInput = player.querySelector('.alexita-file__input');
+        var photoId = 'alexita-photo-' + index;
+
+        if (fileInput) {
+          fileInput.id = photoId;
+        }
+
+        player.querySelectorAll('.alexita-file__preview, .alexita-file__btn').forEach(function (label) {
+          label.setAttribute('for', photoId);
+        });
       });
     }
 
@@ -448,18 +466,22 @@
           '<div class="alexita-field alexita-field--file">' +
             '<span class="alexita-field__label">' + text('photo', 'Foto del rostro') + '</span>' +
             '<div class="alexita-file">' +
-              '<div class="alexita-file__preview" aria-live="polite">' +
+              '<input class="alexita-file__input alexita-file__input--hidden" id="alexita-photo-' + index + '" type="file" accept="image/jpeg,image/png,image/webp">' +
+              '<label class="alexita-file__preview" for="alexita-photo-' + index + '" aria-label="' + text('choosePhoto', 'Elegir foto') + '">' +
                 '<img class="alexita-file__img" alt="' + text('previewAlt', 'Vista previa de la foto') + '">' +
-                '<span class="alexita-file__placeholder">' + text('previewEmpty', 'Sin foto') + '</span>' +
-              '</div>' +
+                '<span class="alexita-file__placeholder">' +
+                  '<span class="alexita-file__preview-icon" aria-hidden="true"></span>' +
+                  '<span class="alexita-file__preview-text">' + text('previewEmpty', 'Sin foto') + '</span>' +
+                  '<span class="alexita-file__preview-hint">' + text('photoTapUpload', 'Toca para subir') + '</span>' +
+                '</span>' +
+                '<span class="alexita-file__preview-change">' + text('changePhoto', 'Cambiar foto') + '</span>' +
+              '</label>' +
               '<input type="hidden" class="alexita-photo-url" name="alexita_players[' + index + '][photo_url]" value="">' +
               '<div class="alexita-file__controls">' +
-                '<div class="alexita-file__picker">' +
-                  '<label class="alexita-file__trigger">' +
-                    '<span class="alexita-file__trigger-text">' + text('choosePhoto', 'Elegir foto') + '</span>' +
-                    '<input class="alexita-file__input" id="alexita-photo-' + index + '" type="file" accept="image/jpeg,image/png,image/webp">' +
-                  '</label>' +
-                '</div>' +
+                '<label class="alexita-file__btn" for="alexita-photo-' + index + '">' +
+                  '<span class="alexita-file__btn-icon" aria-hidden="true"></span>' +
+                  '<span class="alexita-file__btn-text">' + text('choosePhoto', 'Elegir foto') + '</span>' +
+                '</label>' +
                 '<span class="alexita-file__name" data-empty="' + text('noFileSelected', 'Ninguna foto seleccionada') + '">' + text('noFileSelected', 'Ninguna foto seleccionada') + '</span>' +
               '</div>' +
             '</div>' +
@@ -587,6 +609,16 @@
       delete input.dataset.previewUrl;
     }
 
+    function setFileButtonLabel(player, uploaded) {
+      if (!player) return;
+      var btnText = player.querySelector('.alexita-file__btn-text');
+      if (btnText) {
+        btnText.textContent = uploaded
+          ? text('changePhoto', 'Cambiar foto')
+          : text('choosePhoto', 'Elegir foto');
+      }
+    }
+
     function setPreviewFromUrl(input, url, fileName) {
       var player = input.closest('.alexita-player');
       var fileWrap = input.closest('.alexita-file');
@@ -594,7 +626,6 @@
 
       var nameEl = fileWrap.querySelector('.alexita-file__name');
       var imgEl = fileWrap.querySelector('.alexita-file__img');
-      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
       var previewBox = fileWrap.querySelector('.alexita-file__preview');
 
       if (nameEl) {
@@ -604,15 +635,13 @@
       if (imgEl) {
         imgEl.src = url;
       }
-      if (placeholderEl) {
-        placeholderEl.hidden = true;
-      }
       if (previewBox) {
         previewBox.classList.add('has-image');
       }
       if (player) {
         player.classList.add('is-uploaded');
       }
+      setFileButtonLabel(player, true);
     }
 
     function clearPhotoState(input) {
@@ -633,7 +662,6 @@
 
       var nameEl = fileWrap.querySelector('.alexita-file__name');
       var imgEl = fileWrap.querySelector('.alexita-file__img');
-      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
       var previewBox = fileWrap.querySelector('.alexita-file__preview');
       var emptyText = nameEl ? (nameEl.getAttribute('data-empty') || text('noFileSelected', 'Ninguna foto seleccionada')) : '';
 
@@ -644,12 +672,10 @@
       if (imgEl) {
         imgEl.removeAttribute('src');
       }
-      if (placeholderEl) {
-        placeholderEl.hidden = false;
-      }
       if (previewBox) {
         previewBox.classList.remove('has-image');
       }
+      setFileButtonLabel(player, false);
     }
 
     function uploadPlayerPhoto(input) {
@@ -666,7 +692,7 @@
       var file = input.files[0];
       var player = input.closest('.alexita-player');
       var photoUrlInput = player ? player.querySelector('.alexita-photo-url') : null;
-      var triggerText = player ? player.querySelector('.alexita-file__trigger-text') : null;
+      var triggerText = player ? player.querySelector('.alexita-file__btn-text') : null;
       var originalLabel = triggerText ? triggerText.textContent : '';
 
       if (file.size > maxFileSize) {
@@ -707,9 +733,6 @@
           if (player) {
             player.classList.remove('is-uploading');
           }
-          if (triggerText) {
-            triggerText.textContent = originalLabel || text('choosePhoto', 'Elegir foto');
-          }
 
           if (data && data.success && data.data && data.data.url) {
             if (photoUrlInput) {
@@ -745,8 +768,8 @@
 
       var nameEl = fileWrap.querySelector('.alexita-file__name');
       var imgEl = fileWrap.querySelector('.alexita-file__img');
-      var placeholderEl = fileWrap.querySelector('.alexita-file__placeholder');
       var previewBox = fileWrap.querySelector('.alexita-file__preview');
+      var player = input.closest('.alexita-player');
       var emptyText = nameEl ? (nameEl.getAttribute('data-empty') || text('noFileSelected', 'Ninguna foto seleccionada')) : '';
 
       revokePreviewUrl(input);
@@ -766,12 +789,10 @@
       if (imgEl) {
         imgEl.src = objectUrl;
       }
-      if (placeholderEl) {
-        placeholderEl.hidden = true;
-      }
       if (previewBox) {
         previewBox.classList.add('has-image');
       }
+      setFileButtonLabel(player, true);
     }
 
     function syncPlayers() {

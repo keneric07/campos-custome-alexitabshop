@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.6
+ * Version: 1.2.8
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.6';
+	const VERSION = '1.2.8';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -246,10 +246,11 @@ final class Alexita_Product_Personalizer {
 			}
 
 			$list[] = array(
-				'code' => strtoupper( $code ),
-				'name' => $name,
-				'flag' => $flag,
-				'host' => ! empty( $country['host'] ),
+				'code'     => strtoupper( $code ),
+				'name'     => $name,
+				'flag'     => $flag,
+				'host'     => ! empty( $country['host'] ),
+				'featured' => ! empty( $country['featured'] ),
 			);
 		}
 
@@ -389,6 +390,8 @@ final class Alexita_Product_Personalizer {
 					'numExample'      => __( 'Ej.: 14', 'alexita-product-personalizer' ),
 					'photoHint'       => __( 'JPG, PNG o WebP · máx. 2.5 MB', 'alexita-product-personalizer' ),
 					'choosePhoto'     => __( 'Elegir foto', 'alexita-product-personalizer' ),
+					'changePhoto'     => __( 'Cambiar foto', 'alexita-product-personalizer' ),
+					'photoTapUpload'  => __( 'Toca para subir', 'alexita-product-personalizer' ),
 					'noFileSelected'  => __( 'Ninguna foto seleccionada', 'alexita-product-personalizer' ),
 					'previewAlt'      => __( 'Vista previa de la foto', 'alexita-product-personalizer' ),
 					'previewEmpty'    => __( 'Sin foto', 'alexita-product-personalizer' ),
