@@ -165,15 +165,15 @@
     function countryFieldHtml(index) {
       return (
         '<div class="alexita-field alexita-field--country">' +
-          '<label>' + text('country', 'País') + '</label>' +
+          '<label>' + text('country', 'País favorito') + '</label>' +
           '<div class="alexita-country">' +
             '<input type="hidden" class="alexita-country__value" name="alexita_players[' + index + '][country]" value="" required>' +
             '<button type="button" class="alexita-country__trigger" aria-haspopup="dialog">' +
               '<span class="alexita-country__trigger-inner">' +
                 '<span class="alexita-country__selected-flag" aria-hidden="true">🌐</span>' +
                 '<span class="alexita-country__selected-text">' +
-                  '<span class="alexita-country__selected-name">' + text('countryChoose', 'Selecciona tu país') + '</span>' +
-                  '<span class="alexita-country__selected-hint">' + text('countryModalTitle', 'Elige tu país') + '</span>' +
+                  '<span class="alexita-country__selected-name">' + text('countryChoose', 'Selecciona tu país favorito') + '</span>' +
+                  '<span class="alexita-country__selected-hint">' + text('countryModalTitle', 'Elige tu país favorito') + '</span>' +
                 '</span>' +
               '</span>' +
               '<span class="alexita-country__chevron" aria-hidden="true"></span>' +
@@ -454,11 +454,11 @@
           '</div>' +
           '<div class="alexita-player__row">' +
             '<div class="alexita-field alexita-field--name">' +
-              '<label for="alexita-player-name-' + index + '">' + text('name', 'Nombre') + '</label>' +
+              '<label for="alexita-player-name-' + index + '">' + text('name', 'Tu Nombre') + '</label>' +
               '<input id="alexita-player-name-' + index + '" type="text" name="alexita_players[' + index + '][name]" placeholder="' + text('nameExample', 'Ej.: Alexita') + '" maxlength="30" required autocomplete="name">' +
             '</div>' +
             '<div class="alexita-field alexita-field--number">' +
-              '<label for="alexita-player-number-' + index + '">' + text('number', 'Número') + '</label>' +
+              '<label for="alexita-player-number-' + index + '">' + text('number', 'Tu número favorito') + '</label>' +
               '<input id="alexita-player-number-' + index + '" type="text" name="alexita_players[' + index + '][number]" placeholder="' + text('numExample', 'Ej.: 14') + '" maxlength="2" inputmode="numeric" pattern="[0-9]{1,2}" required>' +
             '</div>' +
           '</div>' +

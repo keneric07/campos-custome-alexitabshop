@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.8
+ * Version: 1.2.9
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.8';
+	const VERSION = '1.2.9';
 	const META_ENABLED = '_alexita_personalizer_enabled';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
@@ -375,12 +375,12 @@ final class Alexita_Product_Personalizer {
 				'countries'       => $countries,
 				'labels'          => array(
 					'player'          => __( 'Unidad', 'alexita-product-personalizer' ),
-					'name'            => __( 'Nombre', 'alexita-product-personalizer' ),
-					'number'          => __( 'Número', 'alexita-product-personalizer' ),
-					'country'         => __( 'País', 'alexita-product-personalizer' ),
-					'countryChoose'   => __( 'Selecciona tu país', 'alexita-product-personalizer' ),
+					'name'            => __( 'Tu Nombre', 'alexita-product-personalizer' ),
+					'number'          => __( 'Tu número favorito', 'alexita-product-personalizer' ),
+					'country'         => __( 'País favorito', 'alexita-product-personalizer' ),
+					'countryChoose'   => __( 'Selecciona tu país favorito', 'alexita-product-personalizer' ),
 					'countrySearch'   => __( 'Buscar país…', 'alexita-product-personalizer' ),
-					'countryModalTitle' => __( 'Elige tu país', 'alexita-product-personalizer' ),
+					'countryModalTitle' => __( 'Elige tu país favorito', 'alexita-product-personalizer' ),
 					'countryCancel'   => __( 'Cancelar', 'alexita-product-personalizer' ),
 					'countryNoResults' => __( 'Ningún país coincide', 'alexita-product-personalizer' ),
 					'countryHosts'    => __( 'Anfitriones', 'alexita-product-personalizer' ),
@@ -423,9 +423,9 @@ final class Alexita_Product_Personalizer {
 					<?php echo esc_html__( 'Nombre, número, país y foto por cada pieza. Si cambias la cantidad, se actualizan los formularios.', 'alexita-product-personalizer' ); ?>
 				</p>
 				<ul class="alexita-personalizer__chips" aria-hidden="true">
-					<li><?php echo esc_html__( 'Nombre', 'alexita-product-personalizer' ); ?></li>
-					<li><?php echo esc_html__( 'Número', 'alexita-product-personalizer' ); ?></li>
-					<li><?php echo esc_html__( 'País', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'Tu Nombre', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'Tu número favorito', 'alexita-product-personalizer' ); ?></li>
+					<li><?php echo esc_html__( 'País favorito', 'alexita-product-personalizer' ); ?></li>
 					<li><?php echo esc_html__( 'Foto', 'alexita-product-personalizer' ); ?></li>
 				</ul>
 			</header>
