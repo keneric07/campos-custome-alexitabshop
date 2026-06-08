@@ -20,6 +20,7 @@
     var config = window.AlexitaPersonalizer || {};
     var labels = config.labels || {};
     var countries = config.countries || [];
+    var useCountryList = config.useCountryList !== false;
     var activeCountryEl = null;
     var countryModal = null;
 
@@ -163,6 +164,15 @@
     }
 
     function countryFieldHtml(index) {
+      if (!useCountryList) {
+        return (
+          '<div class="alexita-field alexita-field--country alexita-field--country-text">' +
+            '<label for="alexita-player-country-' + index + '">' + text('country', 'País favorito') + '</label>' +
+            '<input id="alexita-player-country-' + index + '" type="text" class="alexita-country__text" name="alexita_players[' + index + '][country]" placeholder="' + text('countryTextPlaceholder', 'Ej.: Colombia') + '" maxlength="50" required autocomplete="country-name">' +
+          '</div>'
+        );
+      }
+
       return (
         '<div class="alexita-field alexita-field--country">' +
           '<label>' + text('country', 'País favorito') + '</label>' +
@@ -266,7 +276,8 @@
 
         var nameInput = player.querySelector('[name*="[name]"]');
         var numberInput = player.querySelector('[name*="[number]"]');
-        var countryInput = player.querySelector('.alexita-country__value');
+        var countryInput = player.querySelector('.alexita-country__value') || player.querySelector('.alexita-country__text');
+        var countryLabel = player.querySelector('.alexita-field--country-text label');
         var photoUrlInput = player.querySelector('.alexita-photo-url');
 
         if (nameInput) {
@@ -279,6 +290,12 @@
         }
         if (countryInput) {
           countryInput.name = 'alexita_players[' + index + '][country]';
+          if (countryInput.classList.contains('alexita-country__text')) {
+            countryInput.id = 'alexita-player-country-' + index;
+            if (countryLabel) {
+              countryLabel.setAttribute('for', 'alexita-player-country-' + index);
+            }
+          }
         }
         if (photoUrlInput) {
           photoUrlInput.name = 'alexita_players[' + index + '][photo_url]';
@@ -309,7 +326,7 @@
 
       for (i = 0; i < players.length; i++) {
         var playerNumber = i + 1;
-        var countryValue = players[i].querySelector('.alexita-country__value');
+        var countryValue = players[i].querySelector('.alexita-country__value') || players[i].querySelector('.alexita-country__text');
         var photoUrlInput = players[i].querySelector('.alexita-photo-url');
         var fileInput = players[i].querySelector('.alexita-file__input');
 
@@ -318,10 +335,15 @@
           return false;
         }
 
-        if (countryValue && !countryValue.value) {
-          alert(text('missingCountry', 'Selecciona un país para la unidad %d.').replace('%d', String(playerNumber)));
-          if (countryValue.closest('.alexita-country')) {
+        if (countryValue && !countryValue.value.trim()) {
+          var countryMessage = useCountryList
+            ? text('missingCountry', 'Selecciona un país para la unidad %d.')
+            : text('missingCountryText', 'Escribe el país para la unidad %d.');
+          alert(countryMessage.replace('%d', String(playerNumber)));
+          if (useCountryList && countryValue.closest('.alexita-country')) {
             openCountryModal(countryValue.closest('.alexita-country'));
+          } else {
+            countryValue.focus();
           }
           return false;
         }
@@ -834,16 +856,18 @@
     if (wrapper) {
       wrapper.addEventListener('change', handleFileInputChange);
 
-      wrapper.addEventListener('click', function (event) {
-        var trigger = event.target.closest('.alexita-country__trigger');
-        if (trigger) {
-          event.preventDefault();
-          var countryEl = trigger.closest('.alexita-country');
-          if (countryEl) {
-            openCountryModal(countryEl);
+      if (useCountryList) {
+        wrapper.addEventListener('click', function (event) {
+          var trigger = event.target.closest('.alexita-country__trigger');
+          if (trigger) {
+            event.preventDefault();
+            var countryEl = trigger.closest('.alexita-country');
+            if (countryEl) {
+              openCountryModal(countryEl);
+            }
           }
-        }
-      });
+        });
+      }
     }
 
     document.addEventListener('keydown', function (event) {
@@ -953,7 +977,9 @@
 
     bindQuantitySync();
     syncPlayers();
-    ensureCountryModal();
+    if (useCountryList) {
+      ensureCountryModal();
+    }
     watchEcomusStickyBar();
 
     if (form) {

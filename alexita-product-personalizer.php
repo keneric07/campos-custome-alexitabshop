@@ -3,7 +3,7 @@
  * Plugin Name: Alexita Product Personalizer
  * Plugin URI: https://alexitabshop.com/
  * Description: Personalización gratuita para WooCommerce: genera nombre, número y foto por cada unidad comprada.
- * Version: 1.2.9
+ * Version: 1.3.0
  * Author: HW STUDIO | Software Labs
  * Text Domain: alexita-product-personalizer
  * Requires Plugins: woocommerce
@@ -18,8 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Alexita_Product_Personalizer {
 
-	const VERSION = '1.2.9';
+	const VERSION = '1.3.0';
 	const META_ENABLED = '_alexita_personalizer_enabled';
+	const META_WORLDCUP_LIST = '_alexita_worldcup_country_list';
 	const NONCE_ACTION = 'alexita_personalizer_add_to_cart';
 	const NONCE_NAME = 'alexita_personalizer_nonce';
 	const UPLOAD_NONCE_ACTION = 'alexita_personalizer_upload_photo';
@@ -277,6 +278,8 @@ final class Alexita_Product_Personalizer {
 	}
 
 	public static function add_product_option() {
+		global $post;
+
 		woocommerce_wp_checkbox(
 			array(
 				'id'          => self::META_ENABLED,
@@ -285,11 +288,29 @@ final class Alexita_Product_Personalizer {
 				'desc_tip'    => true,
 			)
 		);
+
+		$worldcup_value = $post ? get_post_meta( $post->ID, self::META_WORLDCUP_LIST, true ) : '';
+		if ( '' === $worldcup_value ) {
+			$worldcup_value = 'yes';
+		}
+
+		woocommerce_wp_checkbox(
+			array(
+				'id'            => self::META_WORLDCUP_LIST,
+				'label'         => __( 'País clasificado al Mundial 2026', 'alexita-product-personalizer' ),
+				'description'   => __( 'Activo: el cliente elige de la lista de países clasificados. Desactivado: puede escribir el país libremente.', 'alexita-product-personalizer' ),
+				'desc_tip'      => true,
+				'value'         => $worldcup_value,
+			)
+		);
 	}
 
 	public static function save_product_option( $post_id ) {
 		$value = isset( $_POST[ self::META_ENABLED ] ) ? 'yes' : 'no'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		update_post_meta( $post_id, self::META_ENABLED, $value );
+
+		$worldcup_value = isset( $_POST[ self::META_WORLDCUP_LIST ] ) ? 'yes' : 'no'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		update_post_meta( $post_id, self::META_WORLDCUP_LIST, $worldcup_value );
 	}
 
 	private static function is_enabled_product( $product_id ) {
@@ -309,6 +330,26 @@ final class Alexita_Product_Personalizer {
 		$check_id  = $parent_id ? $parent_id : $product_id;
 
 		return 'yes' === get_post_meta( $check_id, self::META_ENABLED, true );
+	}
+
+	private static function uses_worldcup_country_list( $product_id ) {
+		$product_id = absint( $product_id );
+
+		if ( ! $product_id || ! function_exists( 'wc_get_product' ) ) {
+			return true;
+		}
+
+		$product = wc_get_product( $product_id );
+
+		if ( ! self::is_wc_product( $product ) ) {
+			return true;
+		}
+
+		$parent_id = $product->get_parent_id();
+		$check_id  = $parent_id ? $parent_id : $product_id;
+		$value     = get_post_meta( $check_id, self::META_WORLDCUP_LIST, true );
+
+		return '' === $value || 'yes' === $value;
 	}
 
 	public static function add_to_cart_form_action( $action ) {
@@ -372,6 +413,7 @@ final class Alexita_Product_Personalizer {
 				'uploadAction'    => 'alexita_upload_player_photo',
 				'maxFileSize'     => self::MAX_FILE_SIZE,
 				'maxFileSizeText' => '2.5 MB',
+				'useCountryList'  => self::uses_worldcup_country_list( $product_id ),
 				'countries'       => $countries,
 				'labels'          => array(
 					'player'          => __( 'Unidad', 'alexita-product-personalizer' ),
@@ -398,6 +440,8 @@ final class Alexita_Product_Personalizer {
 					'fileTooLarge'    => __( 'La foto supera el máximo permitido de 2.5 MB.', 'alexita-product-personalizer' ),
 					'missingPhoto'    => __( 'Falta la foto de la unidad %d.', 'alexita-product-personalizer' ),
 					'missingCountry'  => __( 'Selecciona un país para la unidad %d.', 'alexita-product-personalizer' ),
+					'missingCountryText' => __( 'Escribe el país para la unidad %d.', 'alexita-product-personalizer' ),
+					'countryTextPlaceholder' => __( 'Ej.: Colombia', 'alexita-product-personalizer' ),
 					'uploading'       => __( 'Subiendo foto…', 'alexita-product-personalizer' ),
 					'uploadFailed'    => __( 'No se pudo subir la foto. Intenta de nuevo.', 'alexita-product-personalizer' ),
 					'uploadPending'   => __( 'Espera a que termine de subir la foto de la unidad %d.', 'alexita-product-personalizer' ),
@@ -467,15 +511,35 @@ final class Alexita_Product_Personalizer {
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 
-		$prepared = array();
+		$prepared        = array();
+		$use_country_list = self::uses_worldcup_country_list( $enabled_id );
 
 		for ( $i = 0; $i < $quantity; $i++ ) {
 			$player_number = $i + 1;
 
 			$name = isset( $players_post[ $i ]['name'] ) ? sanitize_text_field( $players_post[ $i ]['name'] ) : '';
 			$number = isset( $players_post[ $i ]['number'] ) ? sanitize_text_field( $players_post[ $i ]['number'] ) : '';
-			$country_code = isset( $players_post[ $i ]['country'] ) ? sanitize_text_field( $players_post[ $i ]['country'] ) : '';
-			$country = self::get_country_by_code( $country_code );
+			$country_input = isset( $players_post[ $i ]['country'] ) ? sanitize_text_field( $players_post[ $i ]['country'] ) : '';
+			$country       = null;
+
+			if ( $use_country_list ) {
+				$country = self::get_country_by_code( $country_input );
+			} else {
+				$country_name = $country_input;
+
+				if ( '' !== $country_name ) {
+					if ( self::str_length( $country_name ) > 50 ) {
+						wc_add_notice( sprintf( __( 'El país de la unidad %d no debe pasar de 50 caracteres.', 'alexita-product-personalizer' ), $player_number ), 'error' );
+						return false;
+					}
+
+					$country = array(
+						'code' => '',
+						'name' => $country_name,
+						'flag' => '',
+					);
+				}
+			}
 
 			if ( '' === $name ) {
 				wc_add_notice( sprintf( __( 'Falta el nombre del Jugador %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
@@ -493,7 +557,11 @@ final class Alexita_Product_Personalizer {
 			}
 
 			if ( ! $country ) {
-				wc_add_notice( sprintf( __( 'Selecciona un país válido para la unidad %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
+				if ( $use_country_list ) {
+					wc_add_notice( sprintf( __( 'Selecciona un país válido para la unidad %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
+				} else {
+					wc_add_notice( sprintf( __( 'Escribe el país para la unidad %d.', 'alexita-product-personalizer' ), $player_number ), 'error' );
+				}
 				return false;
 			}
 
