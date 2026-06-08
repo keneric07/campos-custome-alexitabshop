@@ -380,6 +380,44 @@ form.cart .alexita-personalizer,
 }
 
 /* Country picker — trigger + Apple-style modal */
+.alexita-field--country-wrap {
+  margin-bottom: 10px;
+}
+
+.alexita-country-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--alexita-border);
+  border-radius: 8px;
+  background: #fafafb;
+  cursor: pointer;
+  user-select: none;
+}
+
+.alexita-country-mode__check {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--alexita-accent);
+  cursor: pointer;
+}
+
+.alexita-country-mode__text {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1a1a1f;
+}
+
+.alexita-country-list-wrap[hidden],
+.alexita-country-text-wrap[hidden] {
+  display: none !important;
+}
+
 .alexita-country {
   position: relative;
 }

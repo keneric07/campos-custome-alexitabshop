@@ -20,7 +20,6 @@
     var config = window.AlexitaPersonalizer || {};
     var labels = config.labels || {};
     var countries = config.countries || [];
-    var useCountryList = config.useCountryList !== false;
     var activeCountryEl = null;
     var countryModal = null;
 
@@ -163,31 +162,123 @@
       }
     }
 
-    function countryFieldHtml(index) {
-      if (!useCountryList) {
-        return (
-          '<div class="alexita-field alexita-field--country alexita-field--country-text">' +
-            '<label for="alexita-player-country-' + index + '">' + text('country', 'País favorito') + '</label>' +
-            '<input id="alexita-player-country-' + index + '" type="text" class="alexita-country__text" name="alexita_players[' + index + '][country]" placeholder="' + text('countryTextPlaceholder', 'Ej.: Colombia') + '" maxlength="50" required autocomplete="country-name">' +
-          '</div>'
-        );
+    function isPlayerUsingCountryList(player) {
+      var check = player ? player.querySelector('.alexita-country-mode__check') : null;
+      return check ? check.checked : true;
+    }
+
+    function getActiveCountryInput(player) {
+      if (!player) {
+        return null;
       }
 
+      if (isPlayerUsingCountryList(player)) {
+        return player.querySelector('.alexita-country__value');
+      }
+
+      return player.querySelector('.alexita-country__text');
+    }
+
+    function resetCountryListSelection(countryEl) {
+      if (!countryEl) {
+        return;
+      }
+
+      var valueInput = countryEl.querySelector('.alexita-country__value');
+      var flagEl = countryEl.querySelector('.alexita-country__selected-flag');
+      var nameEl = countryEl.querySelector('.alexita-country__selected-name');
+      var hintEl = countryEl.querySelector('.alexita-country__selected-hint');
+
+      if (valueInput) {
+        valueInput.value = '';
+      }
+      if (flagEl) {
+        flagEl.textContent = '🌐';
+      }
+      if (nameEl) {
+        nameEl.textContent = text('countryChoose', 'Selecciona tu país favorito');
+      }
+      if (hintEl) {
+        hintEl.textContent = text('countryModalTitle', 'Elige tu país favorito');
+      }
+
+      countryEl.classList.remove('is-selected');
+    }
+
+    function setPlayerCountryMode(player, useList) {
+      if (!player) {
+        return;
+      }
+
+      var listWrap = player.querySelector('.alexita-country-list-wrap');
+      var textWrap = player.querySelector('.alexita-country-text-wrap');
+      var listInput = player.querySelector('.alexita-country__value');
+      var textInput = player.querySelector('.alexita-country__text');
+      var countryEl = player.querySelector('.alexita-country');
+      var index = player.getAttribute('data-player-index') || '0';
+      var countryName = 'alexita_players[' + index + '][country]';
+
+      if (listWrap) {
+        listWrap.hidden = !useList;
+      }
+      if (textWrap) {
+        textWrap.hidden = useList;
+      }
+
+      if (useList) {
+        if (textInput) {
+          textInput.value = '';
+          textInput.removeAttribute('name');
+          textInput.removeAttribute('required');
+        }
+        if (listInput) {
+          listInput.setAttribute('name', countryName);
+          listInput.setAttribute('required', 'required');
+        }
+      } else {
+        if (listInput) {
+          listInput.value = '';
+          listInput.removeAttribute('name');
+          listInput.removeAttribute('required');
+        }
+        resetCountryListSelection(countryEl);
+        if (textInput) {
+          textInput.setAttribute('name', countryName);
+          textInput.setAttribute('required', 'required');
+        }
+      }
+    }
+
+    function countryFieldHtml(index) {
       return (
-        '<div class="alexita-field alexita-field--country">' +
-          '<label>' + text('country', 'País favorito') + '</label>' +
-          '<div class="alexita-country">' +
-            '<input type="hidden" class="alexita-country__value" name="alexita_players[' + index + '][country]" value="" required>' +
-            '<button type="button" class="alexita-country__trigger" aria-haspopup="dialog">' +
-              '<span class="alexita-country__trigger-inner">' +
-                '<span class="alexita-country__selected-flag" aria-hidden="true">🌐</span>' +
-                '<span class="alexita-country__selected-text">' +
-                  '<span class="alexita-country__selected-name">' + text('countryChoose', 'Selecciona tu país favorito') + '</span>' +
-                  '<span class="alexita-country__selected-hint">' + text('countryModalTitle', 'Elige tu país favorito') + '</span>' +
-                '</span>' +
-              '</span>' +
-              '<span class="alexita-country__chevron" aria-hidden="true"></span>' +
-            '</button>' +
+        '<div class="alexita-field alexita-field--country-wrap">' +
+          '<label class="alexita-country-mode">' +
+            '<input type="checkbox" class="alexita-country-mode__check" name="alexita_players[' + index + '][worldcup_list]" value="1" checked>' +
+            '<span class="alexita-country-mode__text">' + text('worldcupCheck', 'El país clasificó al Mundial 2026') + '</span>' +
+          '</label>' +
+          '<div class="alexita-country-list-wrap">' +
+            '<div class="alexita-field alexita-field--country">' +
+              '<label>' + text('country', 'País favorito') + '</label>' +
+              '<div class="alexita-country">' +
+                '<input type="hidden" class="alexita-country__value" name="alexita_players[' + index + '][country]" value="" required>' +
+                '<button type="button" class="alexita-country__trigger" aria-haspopup="dialog">' +
+                  '<span class="alexita-country__trigger-inner">' +
+                    '<span class="alexita-country__selected-flag" aria-hidden="true">🌐</span>' +
+                    '<span class="alexita-country__selected-text">' +
+                      '<span class="alexita-country__selected-name">' + text('countryChoose', 'Selecciona tu país favorito') + '</span>' +
+                      '<span class="alexita-country__selected-hint">' + text('countryModalTitle', 'Elige tu país favorito') + '</span>' +
+                    '</span>' +
+                  '</span>' +
+                  '<span class="alexita-country__chevron" aria-hidden="true"></span>' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="alexita-country-text-wrap" hidden>' +
+            '<div class="alexita-field alexita-field--country alexita-field--country-text">' +
+              '<label for="alexita-player-country-' + index + '">' + text('country', 'País favorito') + '</label>' +
+              '<input id="alexita-player-country-' + index + '" type="text" class="alexita-country__text" placeholder="' + text('countryTextPlaceholder', 'Ej.: Colombia') + '" maxlength="50" autocomplete="country-name">' +
+            '</div>' +
           '</div>' +
         '</div>'
       );
@@ -276,7 +367,8 @@
 
         var nameInput = player.querySelector('[name*="[name]"]');
         var numberInput = player.querySelector('[name*="[number]"]');
-        var countryInput = player.querySelector('.alexita-country__value') || player.querySelector('.alexita-country__text');
+        var worldcupCheck = player.querySelector('.alexita-country-mode__check');
+        var countryTextInput = player.querySelector('.alexita-country__text');
         var countryLabel = player.querySelector('.alexita-field--country-text label');
         var photoUrlInput = player.querySelector('.alexita-photo-url');
 
@@ -288,15 +380,16 @@
           numberInput.name = 'alexita_players[' + index + '][number]';
           numberInput.id = 'alexita-player-number-' + index;
         }
-        if (countryInput) {
-          countryInput.name = 'alexita_players[' + index + '][country]';
-          if (countryInput.classList.contains('alexita-country__text')) {
-            countryInput.id = 'alexita-player-country-' + index;
-            if (countryLabel) {
-              countryLabel.setAttribute('for', 'alexita-player-country-' + index);
-            }
+        if (worldcupCheck) {
+          worldcupCheck.name = 'alexita_players[' + index + '][worldcup_list]';
+        }
+        if (countryTextInput) {
+          countryTextInput.id = 'alexita-player-country-' + index;
+          if (countryLabel) {
+            countryLabel.setAttribute('for', 'alexita-player-country-' + index);
           }
         }
+        setPlayerCountryMode(player, isPlayerUsingCountryList(player));
         if (photoUrlInput) {
           photoUrlInput.name = 'alexita_players[' + index + '][photo_url]';
         }
@@ -326,9 +419,10 @@
 
       for (i = 0; i < players.length; i++) {
         var playerNumber = i + 1;
-        var countryValue = players[i].querySelector('.alexita-country__value') || players[i].querySelector('.alexita-country__text');
+        var countryValue = getActiveCountryInput(players[i]);
         var photoUrlInput = players[i].querySelector('.alexita-photo-url');
         var fileInput = players[i].querySelector('.alexita-file__input');
+        var useList = isPlayerUsingCountryList(players[i]);
 
         if (players[i].classList.contains('is-uploading')) {
           alert(text('uploadPending', 'Espera a que termine de subir la foto de la unidad %d.').replace('%d', String(playerNumber)));
@@ -336,13 +430,13 @@
         }
 
         if (countryValue && !countryValue.value.trim()) {
-          var countryMessage = useCountryList
+          var countryMessage = useList
             ? text('missingCountry', 'Selecciona un país para la unidad %d.')
             : text('missingCountryText', 'Escribe el país para la unidad %d.');
           alert(countryMessage.replace('%d', String(playerNumber)));
-          if (useCountryList && countryValue.closest('.alexita-country')) {
+          if (useList && countryValue.closest('.alexita-country')) {
             openCountryModal(countryValue.closest('.alexita-country'));
-          } else {
+          } else if (countryValue) {
             countryValue.focus();
           }
           return false;
@@ -841,9 +935,21 @@
       reindexPlayerFields();
     }
 
-    function handleFileInputChange(event) {
+    function handleWrapperChange(event) {
       var input = event.target;
-      if (!input || input.type !== 'file') return;
+      if (!input) {
+        return;
+      }
+
+      if (input.classList && input.classList.contains('alexita-country-mode__check')) {
+        var player = input.closest('.alexita-player');
+        setPlayerCountryMode(player, input.checked);
+        return;
+      }
+
+      if (input.type !== 'file') {
+        return;
+      }
 
       if (!input.files || !input.files[0]) {
         clearPhotoState(input);
@@ -854,20 +960,18 @@
     }
 
     if (wrapper) {
-      wrapper.addEventListener('change', handleFileInputChange);
+      wrapper.addEventListener('change', handleWrapperChange);
 
-      if (useCountryList) {
-        wrapper.addEventListener('click', function (event) {
-          var trigger = event.target.closest('.alexita-country__trigger');
-          if (trigger) {
-            event.preventDefault();
-            var countryEl = trigger.closest('.alexita-country');
-            if (countryEl) {
-              openCountryModal(countryEl);
-            }
+      wrapper.addEventListener('click', function (event) {
+        var trigger = event.target.closest('.alexita-country__trigger');
+        if (trigger) {
+          event.preventDefault();
+          var countryEl = trigger.closest('.alexita-country');
+          if (countryEl) {
+            openCountryModal(countryEl);
           }
-        });
-      }
+        }
+      });
     }
 
     document.addEventListener('keydown', function (event) {
@@ -977,9 +1081,7 @@
 
     bindQuantitySync();
     syncPlayers();
-    if (useCountryList) {
-      ensureCountryModal();
-    }
+    ensureCountryModal();
     watchEcomusStickyBar();
 
     if (form) {
